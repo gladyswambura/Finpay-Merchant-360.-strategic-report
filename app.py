@@ -970,7 +970,7 @@ st.sidebar.divider()
 st.sidebar.markdown("**Risk Legend**")
 st.sidebar.markdown("🔴 Red; Revenue or failure anomaly")
 st.sidebar.markdown("🟡 Yellow; Elevated failure rate")
-st.sidebar.markdown("🟢 Green; Normal operating range")
+st.sidebar.markdown("🟢 Green; Normal operating range") 
 
 
 # streamlit run app.py
