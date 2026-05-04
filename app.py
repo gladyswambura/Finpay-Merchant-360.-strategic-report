@@ -1006,42 +1006,42 @@ def generate_pdf(dataframe, prev_df, fig_vol, fig_rev, fig_sr, fig_fail,
 
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
-st.sidebar.markdown("### FinPay Analytics")
-st.sidebar.markdown("**Cycle:** Apr 27 to May 3, 2026")
-st.sidebar.markdown(f"**Merchants:** {len(df)}")
-st.sidebar.markdown(f"**Total Volume (Excl. REMITLY):** ETB {volume_excl_remitly/1e6:.2f}M")
-st.sidebar.markdown(f"**Total Revenue:** ETB {df['Revenue'].sum():,.2f}")
-st.sidebar.divider()
-st.sidebar.markdown("⚠ **REMITLYGLOBAL** volume = 0 due to data tag issue in source dataset. See report for details.")
-st.sidebar.divider()
+# st.sidebar.markdown("### FinPay Analytics")
+# st.sidebar.markdown("**Cycle:** Apr 27 to May 3, 2026")
+# st.sidebar.markdown(f"**Merchants:** {len(df)}")
+# st.sidebar.markdown(f"**Total Volume (Excl. REMITLY):** ETB {volume_excl_remitly/1e6:.2f}M")
+# st.sidebar.markdown(f"**Total Revenue:** ETB {df['Revenue'].sum():,.2f}")
+# st.sidebar.divider()
+# st.sidebar.markdown("⚠ **REMITLYGLOBAL** volume = 0 due to data tag issue in source dataset. See report for details.")
+# st.sidebar.divider()
 
-if st.sidebar.button("Download Strategic PDF"):
-    try:
-        pdf_bytes = generate_pdf(
-            df, df_prev,
-            fig_vol, fig_rev, fig_sr, fig_fail,
-            fig_margin, fig_ticket,
-            fig_wow_vol, fig_wow_rev, fig_wow_sr, fig_wow_fail
-        )
-        if isinstance(pdf_bytes, str):
-            pdf_bytes = pdf_bytes.encode("latin-1")
-        b64 = base64.b64encode(pdf_bytes).decode()
-        href = (
-            f'<a href="data:application/octet-stream;base64,{b64}" '
-            f'download="Merchant360_Apr27_May3_2026.pdf" '
-            f'style="text-decoration:none; color:white; background:{MAIN_COLOR}; '
-            f'padding:12px 16px; border-radius:5px; display:inline-block; font-size:13px;">'
-            f'Save PDF Report</a>'
-        )
-        st.sidebar.markdown(href, unsafe_allow_html=True)
-    except Exception as e:
-        st.sidebar.error(f"PDF error: {e}")
+# if st.sidebar.button("Download Strategic PDF"):
+#     try:
+#         pdf_bytes = generate_pdf(
+#             df, df_prev,
+#             fig_vol, fig_rev, fig_sr, fig_fail,
+#             fig_margin, fig_ticket,
+#             fig_wow_vol, fig_wow_rev, fig_wow_sr, fig_wow_fail
+#         )
+#         if isinstance(pdf_bytes, str):
+#             pdf_bytes = pdf_bytes.encode("latin-1")
+#         b64 = base64.b64encode(pdf_bytes).decode()
+#         href = (
+#             f'<a href="data:application/octet-stream;base64,{b64}" '
+#             f'download="Merchant360_Apr27_May3_2026.pdf" '
+#             f'style="text-decoration:none; color:white; background:{MAIN_COLOR}; '
+#             f'padding:12px 16px; border-radius:5px; display:inline-block; font-size:13px;">'
+#             f'Save PDF Report</a>'
+#         )
+#         st.sidebar.markdown(href, unsafe_allow_html=True)
+#     except Exception as e:
+#         st.sidebar.error(f"PDF error: {e}")
 
-st.sidebar.divider()
-st.sidebar.markdown("**Risk Legend**")
-st.sidebar.markdown("🔴 Red; Revenue or failure anomaly")
-st.sidebar.markdown("🟡 Yellow; Elevated failure rate")
-st.sidebar.markdown("🟢 Green; Normal operating range")
+# st.sidebar.divider()
+# st.sidebar.markdown("**Risk Legend**")
+# st.sidebar.markdown("🔴 Red; Revenue or failure anomaly")
+# st.sidebar.markdown("🟡 Yellow; Elevated failure rate")
+# st.sidebar.markdown("🟢 Green; Normal operating range")
 
 # streamlit run app.py
 
