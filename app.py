@@ -415,9 +415,75 @@ st.markdown(f"""
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# EXECUTIVE SUMMARY
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Executive Summary</div>', unsafe_allow_html=True)
+
+total_cif = sum(m["cif_issues"] for m in merchants)
+total_telebirr = sum(m["telebirr_failures"] for m in merchants)
+
+st.markdown(f"""
+<div class="obs-card">
+  In May 2026, we processed transactions for <strong>{len(merchants)} active merchants</strong> moving a combined
+  <strong>ETB {total_vol/1e6:.2f} billion</strong> across <strong>{total_txns:,} total transactions</strong>,
+  generating <strong>ETB {total_rev:,.0f}</strong> in revenue.<br><br>
+  Overall platform success rate was <strong>{avg_sr:.1f}%</strong>
+  ({df['successful'].sum():,} successful of {total_txns:,} total),
+  with <strong>FINPAY APPLICATION (EMAAL)</strong> delivering the strongest individual performance at <strong>99.85%</strong>
+  and <strong>RAFIKI LTD (NALA)</strong> the weakest at <strong>22.2%</strong>.
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("**Five critical issues require immediate management action this week:**")
+
+critical_items = [
+    ("Telebirr channel has 100% failure across REMITLY (42 txns) and RAFIKI (21 txns) — ETB 661K blocked.",
+     f"{total_telebirr} transactions blocked. Integration broken at API handshake level. Suspend immediately."),
+    (f"{total_cif} customers blocked across 3 merchants because their info doesn't match CBE's system. Need to contact CBE to unblock them.",
+     "Affects RED SEA DIRECT DEPOSITS (26), JUBA EXPRESS (21), REMITLY GLOBAL (22)."),
+    ("DEEROSERVICES has been failing 1 in every 6 transactions for at least 4 months in a row — every single failure is coming from their Kaafi MFI and CBO bank connections.",
+     "159 failures (16.65%). Reroute from Kaafi MFI and CBO immediately."),
+    ("BIRRLINK zero revenue — 4th consecutive period. ETB 0 on all transactions. Commercial resolution required this week.",
+     "52 transactions processed at zero revenue. Cost-to-serve with no income is not sustainable."),
+    ("RAFIKI/NALA 77.78% failure rate — integration not production-ready. ETB 1,911 charged on failed transactions requires full refund.",
+     "21 of 27 transactions failed. Telebirr channel 100% failure. Bank channel 100% success."),
+]
+
+for headline, detail in critical_items:
+    st.markdown(f"""
+    <div class="crit-card">
+      <strong>🔴 CRITICAL:</strong> {headline}<br>
+      <span style="font-size:12px;color:#666;">{detail}</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════════════════════
+# REQUIRED ACTIONS
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Critical Flags & Required Actions</div>', unsafe_allow_html=True)
+
+actions_data = [
+    {"Priority": "P1 — IMMEDIATE", "Action": "Suspend Ethiotelecom/Telebirr across all merchants", "Owner": "Raymond / Tech Team", "Timeline": "This week", "Reason": "63 transactions blocked (ETB 661K). 100% failure confirmed across 2 merchants. Integration broken at API handshake level."},
+    {"Priority": "P1 — IMMEDIATE", "Action": "Engage CBE on CIF Harmonization account restrictions", "Owner": "PM + CBE Relationship Manager", "Timeline": "This week", "Reason": "69 accounts blocked across 3 merchants (RED SEA DIRECT, JUBA EXPRESS, REMITLY). Portfolio-wide compliance event."},
+    {"Priority": "P1 — IMMEDIATE", "Action": "Reroute DEEROSERVICES away from Kaafi MFI and CBO", "Owner": "Raymond / Tech Team", "Timeline": "This week", "Reason": "159 failures (16.65%). All concentrated at 2 banks. Fix CBO XML integration or disable channel for DEERO."},
+    {"Priority": "P1 — IMMEDIATE", "Action": "Resolve BIRRLINK fee arrangement", "Owner": "Commercial / Finance Team", "Timeline": "This week", "Reason": "4th consecutive zero-revenue period. ETB 0 on 52 transactions. Cost-to-serve with no income is not sustainable."},
+    {"Priority": "P1 — IMMEDIATE", "Action": f"Refund ETB {total_charged_on_failed:,.0f} charged on failed transactions", "Owner": "Finance Team", "Timeline": "This month", "Reason": "Total charges across portfolio on failed txns: RED SEA DIRECT (ETB 99,113), DEERO (ETB 14,469), JUBA (ETB 14,139), RAFIKI (ETB 1,911), others."},
+    {"Priority": "P2 — URGENT", "Action": "Document REMITLY GLOBAL revenue arrangement formally", "Owner": "Commercial / Finance", "Timeline": "This month", "Reason": "ETB 467M processed with ETB 0 revenue. International remittance model needs formal written agreement on record."},
+    {"Priority": "P2 — URGENT", "Action": "FX tracking — Finance to log daily rates from June onwards", "Owner": "Finance Team", "Timeline": "June 2026", "Reason": "Only 22 May opening rates received for May. Daily FX Excel now established. Finance to log opening + closing rates daily."},
+    {"Priority": "P3 — MONITOR", "Action": "FINPAYAPPLICATION mobile channel: confirm ETB 0 revenue is intentional", "Owner": "Commercial", "Timeline": "Review", "Reason": "51 mobile transactions, ETB 6.1M, ETB 0 charges. Config gap or intentional waiver — needs confirmation."},
+]
+
+actions_df = pd.DataFrame(actions_data)
+st.dataframe(actions_df, use_container_width=True, height=380)
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════════════════════
 # PORTFOLIO KPIs
 # ════════════════════════════════════════════════════════════════════════════
-st.markdown('<div class="section-title">Portfolio Overview</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-title">Portfolio Overview — May 2026</div>', unsafe_allow_html=True)
 
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 c1.metric("Total Value Moved", f"ETB {total_vol/1e6:.1f}M")
