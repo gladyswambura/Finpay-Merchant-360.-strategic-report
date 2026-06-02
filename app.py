@@ -2,1008 +2,825 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from fpdf import FPDF
-import base64
-import io
-import datetime
+from datetime import datetime
 
-# ── BRANDING ──────────────────────────────────────────────────────────────────
-MAIN_COLOR = "#081b31"
-GOLD_COLOR = "#8e6d2d"
-LIGHT_BG   = "#f5f3ef"
+# ── BRAND ────────────────────────────────────────────────────────────────────
+NAVY   = "#081b31"
+GOLD   = "#8e6d2d"
+LIGHT  = "#f5f3ef"
+RED    = "#c0392b"
+GREEN  = "#1e8449"
+AMBER  = "#d4ac0d"
+BLUE   = "#1a5276"
 
-
-def safe(text):
-    replacements = {
-        "\u2014": "-", "\u2013": "-", "\u2019": "'", "\u2018": "'",
-        "\u201c": '"', "\u201d": '"', "\u2022": "*", "\u26a0": "!",
-        "\u2705": "[OK]", "\u274c": "[X]", "\u2714": "[v]",
-    }
-    for k, v in replacements.items():
-        text = str(text).replace(k, v)
-    return text.encode("latin-1", errors="replace").decode("latin-1")
-
-
-def hex_to_rgb(h):
-    h = h.lstrip("#")
-    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-MAIN_RGB = hex_to_rgb(MAIN_COLOR)
-GOLD_RGB = hex_to_rgb(GOLD_COLOR)
-
-
-st.set_page_config(page_title="Merchant 360 | Weekly Strategic Report", layout="wide")
+st.set_page_config(page_title="FinPay | May 2026 Monthly Report", layout="wide", page_icon="📊")
 
 st.markdown(f"""
 <style>
-.main {{ background-color: {LIGHT_BG}; }}
-[data-testid="stMetricValue"] {{ font-size: 22px; color: {MAIN_COLOR}; font-weight: bold; }}
-[data-testid="stMetricLabel"] {{ font-size: 13px; color: #555; }}
-h1, h2 {{ color: {MAIN_COLOR} !important; }}
-h3 {{ color: {MAIN_COLOR} !important; font-size: 16px !important; font-weight: bold; margin-bottom: 2px; }}
-.observation-box {{
-    background-color: #ffffff; padding: 12px 14px;
-    border-left: 4px solid {GOLD_COLOR};
-    font-size: 12px; color: #333;
-    box-shadow: 1px 1px 4px rgba(0,0,0,0.06);
-    margin-bottom: 14px; border-radius: 0 6px 6px 0;
-}}
-.flag-box {{
-    background-color: #fdf6e3; padding: 10px 14px;
-    border-left: 4px solid {GOLD_COLOR};
-    font-size: 12px; color: #555;
-    box-shadow: 1px 1px 4px rgba(0,0,0,0.05);
-    margin-bottom: 10px; border-radius: 0 6px 6px 0;
-}}
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
+html, body, [class*="css"] {{ font-family: 'DM Sans', sans-serif; background:{LIGHT}; }}
+h1,h2,h3 {{ font-family:'DM Serif Display', serif; color:{NAVY}; }}
+[data-testid="stMetricValue"] {{ font-size:22px; color:{NAVY}; font-weight:600; }}
+[data-testid="stMetricLabel"] {{ font-size:12px; color:#666; }}
 .header-band {{
-    background: linear-gradient(90deg, {MAIN_COLOR} 0%, #0d2d52 100%);
-    padding: 18px 24px; border-radius: 8px; margin-bottom: 20px;
-    color: white;
+    background: linear-gradient(135deg, {NAVY} 0%, #0d2d52 60%, #112240 100%);
+    padding:28px 32px; border-radius:12px; margin-bottom:24px; color:white;
+    border-left: 5px solid {GOLD};
 }}
-.wow-up   {{ color: #1e8449; font-weight: bold; }}
-.wow-down {{ color: #c0392b; font-weight: bold; }}
-.wow-flat {{ color: #888;    font-weight: normal; }}
-.compare-header {{
-    background: linear-gradient(90deg, {GOLD_COLOR} 0%, #b8960e 100%);
-    padding: 14px 24px; border-radius: 8px; margin-bottom: 16px; color: white;
+.section-title {{
+    font-family:'DM Serif Display',serif; font-size:20px; color:{NAVY};
+    border-bottom: 2px solid {GOLD}; padding-bottom:8px; margin: 28px 0 16px;
 }}
-.chart-note {{
-    font-size: 11px; color: #666; font-style: italic;
-    margin-top: -10px; margin-bottom: 10px; padding-left: 4px;
+.obs-card {{
+    background:white; padding:14px 18px; border-radius:8px;
+    border-left:4px solid {GOLD}; margin-bottom:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.06); font-size:13px; color:#333;
 }}
-.data-note {{
-    background-color: #fff8e1; padding: 10px 14px;
-    border-left: 4px solid #f39c12;
-    font-size: 12px; color: #555;
-    margin-bottom: 14px; border-radius: 0 6px 6px 0;
+.crit-card {{
+    background:#fdf0f0; padding:14px 18px; border-radius:8px;
+    border-left:4px solid {RED}; margin-bottom:12px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.06); font-size:13px; color:#333;
+}}
+.scorecard {{
+    background:white; padding:16px; border-radius:10px;
+    box-shadow:0 2px 12px rgba(0,0,0,0.08); margin-bottom:12px;
+    border-top:3px solid {GOLD};
+}}
+.badge-high {{ background:{RED}; color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }}
+.badge-med  {{ background:{AMBER}; color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }}
+.badge-low  {{ background:{GREEN}; color:white; padding:2px 10px; border-radius:12px; font-size:11px; font-weight:600; }}
+.kpi-box {{
+    background:white; border-radius:10px; padding:16px 20px;
+    border-top:3px solid {GOLD}; box-shadow:0 2px 8px rgba(0,0,0,0.07);
+    text-align:center;
+}}
+.flag-banner {{
+    background:#fff3cd; border:1px solid #ffc107; border-radius:8px;
+    padding:10px 16px; margin-bottom:10px; font-size:12px; color:#856404;
 }}
 </style>
 """, unsafe_allow_html=True)
 
+# ── DATA ─────────────────────────────────────────────────────────────────────
+merchants = [
+    {
+        "code": "REDSEA",
+        "name": "RED SEA",
+        "country": "United Kingdom",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS", "ACCOUNT_DEBIT"],
+        "channel": "Bank",
+        "total_txns": 1374, "successful": 1370, "failed": 4, "pending": 0,
+        "volume": 302232247.00,
+        "revenue": 954322.47,
+        "avg_charge": 696.59,
+        "avg_txn_value": 220607.48,
+        "failed_value": 202150.00,
+        "top_failures": "XML validation failed→reversed (2), Missing data→reversed (2)",
+        "banks_used": 12,
+        "top_bank": "Commercial Bank of Ethiopia (69%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 0,
+        "cbo_failures": 0,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 0,
+        "notes": "100% of failures were auto-reversed. ACCOUNT_DEBIT (17 txns, ETB 206.8M) are bulk/treasury transfers carrying zero charges. Broadest bank spread: 12 institutions, CBE at 69%.",
+    },
+    {
+        "code": "REDSEADIRECTDEPOSITS",
+        "name": "RED SEA DIRECT DEPOSITS",
+        "country": "United Kingdom",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS"],
+        "channel": "Bank",
+        "total_txns": 4402, "successful": 4207, "failed": 195, "pending": 0,
+        "volume": 192700775.95,
+        "revenue": 1927008.63,
+        "avg_charge": 458.05,
+        "avg_txn_value": 45804.80,
+        "failed_value": 9911320.30,
+        "top_failures": "Insufficient balance (63), Unknown error (42), System Error (28), CIF harmonization block (26), Missing data→reversed (4), XML validation (3)",
+        "banks_used": 11,
+        "top_bank": "Commercial Bank of Ethiopia (70%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 26,
+        "cbo_failures": 0,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 99113.00,
+        "notes": "Highest revenue merchant. ETB 9.9M in failed value — highest in portfolio. CIF harmonization block (26 cases) is CBE compliance sweep — needs escalation. ETB 99,113 charged on failed txns requires refund review.",
+    },
+    {
+        "code": "JUBAEXPRESS",
+        "name": "JUBA EXPRESS",
+        "country": "Ethiopia",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS"],
+        "channel": "Bank",
+        "total_txns": 8042, "successful": 7923, "failed": 119, "pending": 0,
+        "volume": 252050695.00,
+        "revenue": 1008230.09,
+        "avg_charge": 127.25,
+        "avg_txn_value": 31812.53,
+        "failed_value": 3534649.00,
+        "top_failures": "System Error (24), Insufficient balance (24), XML validation (21), CIF harmonization block (21), Unknown error (12), Missing data→reversed (5)",
+        "banks_used": 17,
+        "top_bank": "Commercial Bank of Ethiopia (77%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 21,
+        "cbo_failures": 0,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 14138.93,
+        "notes": "Highest transaction volume (bank channel). Broadest bank network — 17 institutions. CIF harmonization block (21 cases) confirms portfolio-wide CBE compliance event. ETB 14,138 charged on failed txns.",
+    },
+    {
+        "code": "FINPAYAPPLICATION",
+        "name": "FINPAY APPLICATION (EMAAL)",
+        "country": "Kenya",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS", "ACCOUNT_DEBIT"],
+        "channel": "Bank + Mobile",
+        "total_txns": 4756, "successful": 4749, "failed": 7, "pending": 0,
+        "volume": 358351263.38,
+        "revenue": 427063.00,
+        "avg_charge": 89.93,
+        "avg_txn_value": 75458.26,
+        "failed_value": 538144.00,
+        "top_failures": "Transaction Failed generic (3), Missing data→reversed (1), ERRR→reversed (1), Insufficient balance (1), CreditParty invalid state/mobile (1)",
+        "banks_used": 15,
+        "top_bank": "Commercial Bank of Ethiopia (88%)",
+        "mobile": True,
+        "mobile_networks": ["Safaricom (M-Pesa)", "Airtel", "MTN"],
+        "mobile_txns": 51, "mobile_successful": 49, "mobile_failed": 2,
+        "mobile_volume": 6120284.00,
+        "mobile_revenue": 0.00,
+        "cif_issues": 0,
+        "cbo_failures": 0,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 455.00,
+        "notes": "Highest total value moved (ETB 358M) and best success rate (99.85%). No CIF harmonization failures — only major merchant unaffected. Mobile: 3 networks, Airtel handling largest avg value (ETB 540K/txn). Mobile generates ETB 0 revenue — confirm if intentional.",
+    },
+    {
+        "code": "BIRRLINK",
+        "name": "BIRR LINK",
+        "country": "Ethiopia",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS"],
+        "channel": "Bank",
+        "total_txns": 52, "successful": 50, "failed": 2, "pending": 0,
+        "volume": 1841316.53,
+        "revenue": 0.00,
+        "avg_charge": 0.00,
+        "avg_txn_value": 36826.33,
+        "failed_value": 28297.90,
+        "top_failures": "Exception on bank transfer (1), Insufficient balance (1)",
+        "banks_used": 4,
+        "top_bank": "Commercial Bank of Ethiopia (79%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 0,
+        "cbo_failures": 0,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 0,
+        "notes": "CRITICAL: 4th consecutive period of ETB 0.00 revenue. Zero charges on all 52 transactions. Commercial team must resolve fee arrangement urgently — this merchant consumes operational resources at zero revenue.",
+    },
+    {
+        "code": "DEEROSERVICES",
+        "name": "DEERO SERVICES",
+        "country": "USA",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS", "ACCOUNT_DEBIT"],
+        "channel": "Bank",
+        "total_txns": 955, "successful": 796, "failed": 159, "pending": 0,
+        "volume": 188381403.00,
+        "revenue": 67431.00,
+        "avg_charge": 84.71,
+        "avg_txn_value": 236660.05,
+        "failed_value": 3607806.00,
+        "top_failures": "BLCK Account Blocked→reversed (87), XML validation failed→reversed (63), System Error (7), Currency mismatch (2)",
+        "banks_used": 10,
+        "top_bank": "Commercial Bank of Ethiopia (50%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 0,
+        "cbo_failures": 71,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 14469.00,
+        "notes": "Worst success rate (83.35%). 100% of failures concentrated at 2 banks: Kaafi MFI (84 failures, BLCK errors) and CBO (71 failures, XML validation). ACCOUNT_DEBIT (55 txns, ETB 157.8M) all succeeded. ETB 14,469 charged on failed txns — refund required.",
+    },
+    {
+        "code": "REMITLYGLOBAL",
+        "name": "REMITLY GLOBAL",
+        "country": "USA",
+        "period": "May 1–31, 2026",
+        "full_month": True,
+        "txn_types": ["DISBURSEMENTS", "ACCOUNT_DEBIT"],
+        "channel": "Bank + Mobile",
+        "total_txns": 15066, "successful": 14773, "failed": 293, "pending": 0,
+        "volume": 467019428.75,
+        "revenue": 0.00,
+        "avg_charge": 0.00,
+        "avg_txn_value": 31613.04,
+        "failed_value": 17625789.27,
+        "top_failures": "Creditor Agent error→reversed (57), System Error (52), Transaction not found (33), Insufficient balance (32), CIF harmonization block (22), Unknown error (16)",
+        "banks_used": 12,
+        "top_bank": "Commercial Bank of Ethiopia (66%)",
+        "mobile": True,
+        "mobile_networks": ["Safaricom (M-Pesa)", "Ethiotelecom (Telebirr)"],
+        "mobile_txns": 245, "mobile_successful": 200, "mobile_failed": 45,
+        "mobile_volume": 5039597.00,
+        "mobile_revenue": 0.00,
+        "cif_issues": 22,
+        "cbo_failures": 8,
+        "telebirr_failures": 42,
+        "kyc_status": "Complete",
+        "charges_on_failed": 0,
+        "notes": "Highest volume (15,066 txns) and highest value moved (ETB 467M). ETB 0 revenue — international model, but arrangement must be documented. CRITICAL: Ethiotelecom/Telebirr 100% failure rate (42/42). CIF harmonization (22 cases). CBO: 57% failure rate (8/14). ETB 17.6M in failed value — highest in portfolio.",
+    },
+    {
+        "code": "RAFIKILTD",
+        "name": "RAFIKI LTD (NALA)",
+        "country": "United Kingdom",
+        "period": "May 6–28, 2026",
+        "full_month": False,
+        "txn_types": ["DISBURSEMENTS"],
+        "channel": "Bank + Mobile",
+        "total_txns": 27, "successful": 6, "failed": 21, "pending": 0,
+        "volume": 45023.08,
+        "revenue": 546.00,
+        "avg_charge": 91.00,
+        "avg_txn_value": 7503.85,
+        "failed_value": 313918.31,
+        "top_failures": "Transaction not found (14), Transaction Failed generic (3), Transaction state Cancelled (2), Customer not registered (1), JDBC Connection error (1)",
+        "banks_used": 3,
+        "top_bank": "Commercial Bank of Ethiopia (100% success on bank)",
+        "mobile": True,
+        "mobile_networks": ["Ethiotelecom (Telebirr)", "Safaricom (M-Pesa)"],
+        "mobile_txns": 22, "mobile_successful": 1, "mobile_failed": 21,
+        "mobile_volume": 14018.31,
+        "mobile_revenue": 0.00,
+        "cif_issues": 0,
+        "cbo_failures": 0,
+        "telebirr_failures": 21,
+        "kyc_status": "Complete",
+        "charges_on_failed": 1911.00,
+        "notes": "CRITICAL: 77.78% failure rate — worst in portfolio. Ethiotelecom 100% failure (21/21). Bank channel: 100% success (5/5). ETB 1,911 charged on failed txns — full refund required. Likely still in onboarding/testing phase.",
+    },
+    {
+        "code": "BAKAALEXPRESS",
+        "name": "BAKAAL EXPRESS",
+        "country": "Somalia",
+        "period": "May 9–30, 2026",
+        "full_month": False,
+        "txn_types": ["DISBURSEMENTS"],
+        "channel": "Bank",
+        "total_txns": 300, "successful": 296, "failed": 4, "pending": 0,
+        "volume": 4873318.00,
+        "revenue": 17384.07,
+        "avg_charge": 58.73,
+        "avg_txn_value": 16463.91,
+        "failed_value": 89920.00,
+        "top_failures": "XML validation→reversed (1), Currency mismatch→reversed (1), Missing data→reversed (1), Unknown (1)",
+        "banks_used": 6,
+        "top_bank": "Commercial Bank of Ethiopia (91%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 0,
+        "cbo_failures": 1,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 314.74,
+        "notes": "Percentage-based charge model — unique in portfolio. Charges scale with transaction size (ETB 0.12–ETB 315). Solid 98.67% success rate. Bank of Abyssinia showing 12.5% failure rate (2/16) — monitor. ETB 314.74 on failed txns for refund.",
+    },
+    {
+        "code": "MELAFINANCE",
+        "name": "MELA FINANCE",
+        "country": "United Kingdom",
+        "period": "May 18–31, 2026",
+        "full_month": False,
+        "txn_types": ["DISBURSEMENTS"],
+        "channel": "Bank",
+        "total_txns": 60, "successful": 57, "failed": 3, "pending": 0,
+        "volume": 2065210.76,
+        "revenue": 6200.99,
+        "avg_charge": 108.79,
+        "avg_txn_value": 36231.77,
+        "failed_value": 82425.00,
+        "top_failures": "Failed to obtain auth token (2), No reason recorded (1)",
+        "banks_used": 1,
+        "top_bank": "Commercial Bank of Ethiopia (100%)",
+        "mobile": False,
+        "mobile_networks": [],
+        "cif_issues": 0,
+        "cbo_failures": 0,
+        "telebirr_failures": 0,
+        "kyc_status": "Complete",
+        "charges_on_failed": 247.28,
+        "notes": "New merchant (onboarded May 11). Percentage-based fee model. Auth token failures (2) are integration/connectivity issues. 100% CBE concentration — single point of failure risk. ETB 247.28 on failed txns for refund.",
+    },
+]
 
-# ── THIS WEEK DATA (Apr 27 – May 3, 2026) ─────────────────────────────────────
-def load_current():
-    records = [
-        {
-            "Merchant":       "REDSEA",
-            "TxnTypes":       "DISBURSEMENTS, ACCOUNT_DEBIT",
-            "Channel":        "Bank",
-            "DateRange":      "27 Apr – 01 May 2026",
-            "Volume":         40_970_043.00,
-            "Revenue":        97_700.43,
-            "Successful":     46,
-            "Failed":         0,
-            "Pending":        0,
-            "Avg_Charge":     2_123.92,
-            "Avg_Txn_Value":  890_653.11,
-            "Risk":           "Low",
-            "Top_Failures":   "None",
-            "Notes":          "100% success rate across all 46 transactions. No pending or failed records. All processed through bank channels. Revenue of ETB 97,700.43 collected.",
-        },
-        {
-            "Merchant":       "REDSEADIRECTDEPOSITS",
-            "TxnTypes":       "DIRECT_DEPOSIT, ACCOUNT_CREDIT",
-            "Channel":        "Bank",
-            "DateRange":      "27 Apr – 02 May 2026",
-            "Volume":         52_884_310.00,
-            "Revenue":        126_184.31,
-            "Successful":     115,
-            "Failed":         3,
-            "Pending":        1,
-            "Avg_Charge":     1_090.57,
-            "Avg_Txn_Value":  456_761.12,
-            "Risk":           "Low",
-            "Top_Failures":   "Account Not Found (2), Insufficient Balance (1)",
-            "Notes":          "115 successful transactions used for value and revenue calculations. 3 failures and 1 pending noted. Failure rate ~2.5% (3/118); within acceptable range.",
-        },
-        {
-            "Merchant":       "JUBAEXPRESS",
-            "TxnTypes":       "DISBURSEMENTS",
-            "Channel":        "Bank",
-            "DateRange":      "01 May – 03 May 2026",
-            "Volume":         53_305_536.00,
-            "Revenue":        213_227.96,
-            "Successful":     1_713,
-            "Failed":         42,
-            "Pending":        0,
-            "Avg_Charge":     124.48,
-            "Avg_Txn_Value":  31_118.23,
-            "Risk":           "Medium",
-            "Top_Failures":   "Insufficient balance (19), System Error (9), Unknown error (8), XML validation failed reversed (2), Creditor Agent error reversed (2)",
-            "Notes":          "1,755 total transactions. Failure rate ~2.4% (42/1755). Top failure is insufficient balance; may indicate funding gaps. System errors (9) also need investigation.",
-        },
-        {
-            "Merchant":       "FINPAYAPPLICATION",
-            "TxnTypes":       "DISBURSEMENTS, ACCOUNT_DEBIT",
-            "Channel":        "Bank",
-            "DateRange":      "27 Apr – 03 May 2026",
-            "Volume":         55_973_997.51,
-            "Revenue":        74_893.00,
-            "Successful":     826,
-            "Failed":         2,
-            "Pending":        0,
-            "Avg_Charge":     90.67,
-            "Avg_Txn_Value":  67_765.13,
-            "Risk":           "Low",
-            "Top_Failures":   "Insufficient balance (1), XML validation failed reversed (1)",
-            "Notes":          "828 total transactions. Failure rate extremely low (0.24%). Charges are very consistent (~91 ETB); near-flat fee structure. Operationally strong week.",
-        },
-        {
-            "Merchant":       "BIRRLINK",
-            "TxnTypes":       "DISBURSEMENTS",
-            "Channel":        "Bank",
-            "DateRange":      "27 Apr – 03 May 2026",
-            "Volume":         641_020.50,
-            "Revenue":        0.00,
-            "Successful":     20,
-            "Failed":         1,
-            "Pending":        0,
-            "Avg_Charge":     0.00,
-            "Avg_Txn_Value":  32_051.03,
-            "Risk":           "High",
-            "Top_Failures":   "Insufficient balance (1)",
-            "Notes":          "Zero revenue recorded again; likely zero-fee or absorbed-cost arrangement. Failure rate 4.76% (1/21). Fee arrangement still unconfirmed; documentation urgently needed.",
-        },
-        {
-            "Merchant":       "DEEROSERVICES",
-            "TxnTypes":       "DISBURSEMENTS",
-            "Channel":        "Bank",
-            "DateRange":      "27 Apr – 03 May 2026",
-            "Volume":         40_875_745.00,
-            "Revenue":        88_179.00,
-            "Successful":     853,
-            "Failed":         116,
-            "Pending":        0,
-            "Avg_Charge":     91.00,  # flat fee
-            "Avg_Txn_Value":  47_919.98,
-            "Risk":           "High",
-            "Top_Failures":   "BLCK reversed (58), XML validation failed reversed (45), System Error (7), Currency mismatch (5), Missing reversed (1)",
-            "Notes":          "CRITICAL: 969 total transactions. Failure rate ~12% (116/969); significantly above acceptable thresholds. Main issue cluster: reversals + validation errors. Escalation required immediately.",
-        },
-        {
-            "Merchant":       "REMITLYGLOBAL",
-            "TxnTypes":       "DISBURSEMENTS",
-            "Channel":        "Bank",
-            "DateRange":      "27 Apr – 03 May 2026",
-            "Volume":         0.00,   # data quality issue; no 'successful' tag found
-            "Revenue":        0.00,
-            "Successful":     2_735,  # 2834 - 99 failed
-            "Failed":         99,
-            "Pending":        0,
-            "Avg_Charge":     0.00,
-            "Avg_Txn_Value":  0.00,
-            "Risk":           "Medium",
-            "Top_Failures":   "System Error (35), Insufficient balance (31), Creditor Agent error reversed (18), Unknown error (9), Failed to obtain auth token (3)",
-            "Notes":          "DATA QUALITY FLAG: No transactions tagged 'successful' in dataset; volume and avg transaction value show 0. Actual volume cannot be confirmed. 2,834 total transactions; 99 failed (3.5% failure rate). Zero charges; international remittance model confirmed. Recommend data pipeline review.",
-        },
-    ]
-    df = pd.DataFrame(records)
-    df["Total_Txns"]       = df["Successful"] + df["Failed"] + df["Pending"]
-    df["Success_Rate"]     = (df["Successful"] / df["Total_Txns"].replace(0, 1)) * 100
-    df["Est_Failed_Value"] = df["Failed"] * df["Avg_Txn_Value"]
-    df["Rev_Margin_BPS"]   = (df["Revenue"] / df["Volume"].replace(0, 1)) * 10_000
-    return df
+df = pd.DataFrame(merchants)
+df["success_rate"] = (df["successful"] / df["total_txns"]) * 100
+df["failure_rate"] = (df["failed"] / df["total_txns"]) * 100
+df["rev_bps"] = (df["revenue"] / df["volume"].replace(0, 1)) * 10000
 
+# ── FX DATA ──────────────────────────────────────────────────────────────────
+fx_data = {
+    "ETB/USD": {"date": "22 May 2026", "opening": 184.00, "closing": "Not received", "note": "Confirmed opening rate. Closing rate not submitted by Finance."},
+    "KES/USD": {"date": "22 May 2026", "opening": 129.00, "closing": "Not received", "note": "Confirmed opening rate. Same rate confirmed as of 25 May."},
+    "UGX/USD": {"date": "22 May 2026", "opening": 3772.00, "closing": "Not received", "note": "Confirmed opening rate only."},
+}
 
-# ── PRIOR WEEK DATA (Apr 20–26, 2026) ─────────────────────────────────────────
-def load_prior():
-    records = [
-        {"Merchant": "REDSEA",               "Volume": 41_981_936.00, "Revenue": 49_819.36,   "Successful": 27,    "Failed": 0,   "Total_Txns": 27,   "Avg_Txn_Value": 1_554_886.52, "Success_Rate": 100.0},
-        {"Merchant": "REDSEADIRECTDEPOSITS",  "Volume": 45_195_396.45, "Revenue": 451_954.15,  "Successful": 1_000, "Failed": 3,   "Total_Txns": 1_003,"Avg_Txn_Value": 45_195.40,    "Success_Rate": 99.70},
-        {"Merchant": "JUBAEXPRESS",           "Volume": 46_886_467.00, "Revenue": 187_550.80,  "Successful": 1_460, "Failed": 3,   "Total_Txns": 1_463,"Avg_Txn_Value": 32_114.02,    "Success_Rate": 99.79},
-        {"Merchant": "FINPAYAPPLICATION",     "Volume": 28_026_347.40, "Revenue": 60_879.00,   "Successful": 670,   "Failed": 1,   "Total_Txns": 671,  "Avg_Txn_Value": 41_830.37,    "Success_Rate": 99.85},
-        {"Merchant": "BIRRLINK",              "Volume": 615_078.00,    "Revenue": 0.00,          "Successful": 24,    "Failed": 0,   "Total_Txns": 24,   "Avg_Txn_Value": 25_628.25,    "Success_Rate": 100.0},
-        {"Merchant": "DEEROSERVICES",         "Volume": 23_453_278.00, "Revenue": 56_966.00,   "Successful": 626,   "Failed": 154, "Total_Txns": 780,  "Avg_Txn_Value": 37_465.30,    "Success_Rate": 80.26},
-        {"Merchant": "REMITLYGLOBAL",         "Volume": 71_061_908.98, "Revenue": 0.00,          "Successful": 2_322, "Failed": 13,  "Total_Txns": 2_335,"Avg_Txn_Value": 30_603.75,    "Success_Rate": 99.44},
-    ]
-    return pd.DataFrame(records)
+# ── RISK SCORECARD ────────────────────────────────────────────────────────────
+def compute_risk(m):
+    score = 0
+    # Success rate
+    sr = (m["successful"] / m["total_txns"]) * 100
+    if sr < 85:   score += 40
+    elif sr < 95: score += 20
+    elif sr < 99: score += 10
+    # Revenue
+    if m["revenue"] == 0: score += 30
+    # Failed value
+    if m["failed_value"] > 5000000: score += 25
+    elif m["failed_value"] > 1000000: score += 15
+    # Charges on failed
+    if m["charges_on_failed"] > 10000: score += 20
+    elif m["charges_on_failed"] > 0: score += 10
+    # Telebirr failures
+    if m["telebirr_failures"] > 10: score += 30
+    # CIF issues
+    if m["cif_issues"] > 15: score += 20
+    elif m["cif_issues"] > 0: score += 10
+    # CBO failures
+    if m["cbo_failures"] > 30: score += 15
+    elif m["cbo_failures"] > 0: score += 8
+    # Full month
+    if not m["full_month"]: score += 5
 
+    if score >= 55:   return "High", score
+    elif score >= 25: return "Medium", score
+    else:             return "Low", score
 
-df      = load_current()
-df_prev = load_prior()
+for m in merchants:
+    risk, score = compute_risk(m)
+    m["risk_level"] = risk
+    m["risk_score"] = score
 
+df["risk_level"] = [m["risk_level"] for m in merchants]
+df["risk_score"]  = [m["risk_score"]  for m in merchants]
 
-# ── HEADER ────────────────────────────────────────────────────────────────────
+# ── PORTFOLIO AGGREGATES (needed by header) ───────────────────────────────
+total_vol    = df["volume"].sum()
+total_rev    = df["revenue"].sum()
+total_txns   = df["total_txns"].sum()
+total_failed = df["failed"].sum()
+total_fail_val = df["failed_value"].sum()
+avg_sr       = df["success_rate"].mean()
+total_charged_on_failed = sum(m["charges_on_failed"] for m in merchants)
+
+# ════════════════════════════════════════════════════════════════════════════
+# HEADER
+# ════════════════════════════════════════════════════════════════════════════
 st.markdown(f"""
 <div class="header-band">
-  <span style="font-size:22px; font-weight:700; letter-spacing:1px; color:white;">
-    MERCHANT 360 &nbsp;|&nbsp; WEEKLY STRATEGIC REPORT
-  </span><br>
-  <span style="font-size:13px; opacity:0.85; color:white;">
-    Analytics Cycle: April 27 to May 3, 2026 &nbsp;&middot;&nbsp;
-    7 Merchants &nbsp;&middot;&nbsp; Ethiopia (ETB)
-  </span>
+  <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:0.7;margin-bottom:6px;color:{GOLD};">
+    FINPAY TECH · INTERNAL ANALYTICS
+  </div>
+  <div style="font-size:28px;font-family:'DM Serif Display',serif;font-weight:400;color:white;margin-bottom:4px;">
+    Monthly Merchant Performance & Risk Report
+  </div>
+  <div style="font-size:13px;opacity:0.85;color:white;">
+    Reporting Period: May 1 – 31, 2026 &nbsp;
+    |&nbsp; Active Merchants: {len(merchants)} active &nbsp;|&nbsp; Total value monitored: ETB {total_vol/1e6:.1f}M &nbsp;|&nbsp;
+  Total revenue: ETB {total_rev:,.0f}
+  </div>
 </div>
 """, unsafe_allow_html=True)
 
 
+# ════════════════════════════════════════════════════════════════════════════
+# PORTFOLIO KPIs
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Portfolio Overview</div>', unsafe_allow_html=True)
 
-# ── TOP KPIs ──────────────────────────────────────────────────────────────────
-# Exclude REMITLYGLOBAL from volume total due to data quality issue
-volume_excl_remitly = df[df["Merchant"] != "REMITLYGLOBAL"]["Volume"].sum()
-k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("Total Weekly Revenue",           f"ETB {df['Revenue'].sum():,.2f}")
-k2.metric("Total Money Moved (Excl. REMITLY)", f"ETB {volume_excl_remitly:,.2f}",
-          help="REMITLYGLOBAL excluded due to data quality issue (no successful transaction tags found). Volume = 0 for that merchant.")
-k3.metric("Total Transactions",             f"{df['Total_Txns'].sum():,}")
-k4.metric("Average Success Rate",           f"{df['Success_Rate'].mean():.2f}%")
-k5.metric(
-    "Est. Value in Failed Transactions",
-    f"ETB {df['Est_Failed_Value'].sum():,.2f}",
-    help="Failed count × Average Transaction Value. REMITLYGLOBAL not included (avg txn value = 0 due to data issue).",
-)
+c1,c2,c3,c4,c5,c6 = st.columns(6)
+c1.metric("Total Value Moved", f"ETB {total_vol/1e6:.1f}M")
+c2.metric("Total Revenue", f"ETB {total_rev:,.0f}")
+c3.metric("Total Transactions", f"{total_txns:,}")
+c4.metric("Total Failed", f"{total_failed:,}", delta=f"{(total_failed/total_txns*100):.1f}% of all txns", delta_color="inverse")
+c5.metric("Est. Failed Value", f"ETB {total_fail_val/1e6:.1f}M")
+c6.metric("Charges on Failed Txns", f"ETB {total_charged_on_failed:,.0f}", help="Requires refund review across portfolio")
 
 st.divider()
 
-# ── CHART ROW 1: Volume + Revenue ─────────────────────────────────────────────
-c1, c2 = st.columns(2)
+# ════════════════════════════════════════════════════════════════════════════
+# CHART ROW 1 — Volume & Revenue
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Volume & Revenue Analysis</div>', unsafe_allow_html=True)
 
-with c1:
-    df_vol = df.copy()
+CHART_COLORS = [NAVY, GOLD, BLUE, "#2e86c1", "#117a65", "#6c3483", "#784212", "#1a5276", "#0b5345", "#4a235a"]
+
+ch1, ch2 = st.columns(2)
+with ch1:
     fig_vol = px.bar(
-        df_vol.sort_values("Volume"),
-        x="Volume", y="Merchant", orientation="h",
-        color_discrete_sequence=[MAIN_COLOR],
-        title="Total Money Moved by Merchant (ETB); REMITLY = 0 due to data issue",
-        text=df_vol.sort_values("Volume")["Volume"].apply(
-            lambda v: f"{v/1e6:.1f}M" if v > 0 else "Data N/A"
-        ),
+        df.sort_values("volume"),
+        x="volume", y="name", orientation="h",
+        color_discrete_sequence=[NAVY],
+        title="Total Value Moved by Merchant (ETB)",
+        text=df.sort_values("volume")["volume"].apply(lambda v: f"{v/1e6:.1f}M" if v > 0 else "N/A"),
     )
     fig_vol.update_traces(textposition="outside")
-    fig_vol.update_layout(plot_bgcolor="white", font=dict(size=10),
-                          margin=dict(t=50, b=10, l=10, r=90), xaxis_title="", yaxis_title="")
+    fig_vol.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                          margin=dict(t=40,b=10,l=10,r=80), xaxis_title="ETB", yaxis_title="")
     st.plotly_chart(fig_vol, use_container_width=True)
 
-with c2:
+with ch2:
     fig_rev = px.bar(
-        df.sort_values("Revenue"),
-        x="Merchant", y="Revenue",
-        color_discrete_sequence=[GOLD_COLOR],
-        title="Total Revenue / Charges Collected (ETB)",
-        text=df.sort_values("Revenue")["Revenue"].apply(lambda v: f"{v:,.0f}"),
+        df.sort_values("revenue"),
+        x="name", y="revenue",
+        color_discrete_sequence=[GOLD],
+        title="Total Revenue Collected by Merchant (ETB)",
+        text=df.sort_values("revenue")["revenue"].apply(lambda v: f"{v:,.0f}"),
     )
     fig_rev.update_traces(textposition="outside")
-    fig_rev.update_layout(plot_bgcolor="white", font=dict(size=10),
-                          margin=dict(t=40, b=10, l=10, r=10), xaxis_title="", yaxis_title="")
+    fig_rev.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                          margin=dict(t=40,b=10,l=10,r=10), xaxis_title="", yaxis_title="ETB")
+    fig_rev.update_xaxes(tickangle=30)
     st.plotly_chart(fig_rev, use_container_width=True)
 
-# ── CHART ROW 2: Success Rate Donut + Failed bar ──────────────────────────────
-c3, c4 = st.columns(2)
-
-with c3:
-    pie_colors = [MAIN_COLOR, GOLD_COLOR, "#1a5276", "#b8860b", "#2e86c1", "#c0a060", "#0d2d52"]
-    fig_sr = px.pie(
-        df,
-        names="Merchant",
-        values="Success_Rate",
+# ════════════════════════════════════════════════════════════════════════════
+# CHART ROW 2 — Success Rates & Failures
+# ════════════════════════════════════════════════════════════════════════════
+ch3, ch4 = st.columns(2)
+with ch3:
+    color_map = {"High": RED, "Medium": AMBER, "Low": GREEN}
+    fig_sr = px.bar(
+        df.sort_values("success_rate"),
+        x="success_rate", y="name", orientation="h",
+        color="risk_level",
+        color_discrete_map=color_map,
         title="Success Rate by Merchant (%)",
-        color_discrete_sequence=pie_colors,
-        hole=0.35,
+        text=df.sort_values("success_rate")["success_rate"].apply(lambda v: f"{v:.1f}%"),
     )
-    fig_sr.update_traces(
-        textinfo="label+percent",
-        texttemplate="<b>%{label}</b><br>%{customdata:.1f}%",
-        customdata=df["Success_Rate"],
-        hovertemplate="<b>%{label}</b><br>Success Rate: %{customdata:.2f}%<extra></extra>",
-    )
-    fig_sr.update_layout(
-        plot_bgcolor="white", font=dict(size=10),
-        margin=dict(t=40, b=10, l=10, r=10), showlegend=True,
-    )
+    fig_sr.update_traces(textposition="outside")
+    fig_sr.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                         margin=dict(t=40,b=10,l=10,r=60),
+                         xaxis=dict(range=[0,105]), xaxis_title="%", yaxis_title="")
     st.plotly_chart(fig_sr, use_container_width=True)
 
-with c4:
+with ch4:
     fig_fail = px.bar(
-        df.sort_values("Failed", ascending=False),
-        x="Merchant", y="Failed", color="Risk",
-        color_discrete_map={"High": "#c0392b", "Medium": "#d4ac0d", "Low": "#1e8449"},
-        title="Number of Failed Transactions by Merchant",
-        text="Failed",
+        df.sort_values("failed", ascending=False),
+        x="name", y="failed",
+        color="risk_level",
+        color_discrete_map=color_map,
+        title="Failed Transactions by Merchant",
+        text="failed",
     )
     fig_fail.update_traces(textposition="outside")
-    fig_fail.update_layout(plot_bgcolor="white", font=dict(size=10),
-                           margin=dict(t=40, b=10, l=10, r=10),
-                           xaxis_title="", yaxis_title="Number of Failed Transactions")
+    fig_fail.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                           margin=dict(t=40,b=10,l=10,r=10), xaxis_title="", yaxis_title="Count")
+    fig_fail.update_xaxes(tickangle=30)
     st.plotly_chart(fig_fail, use_container_width=True)
 
-# ── CHART ROW 3: Revenue Margin + Avg Transaction Value ───────────────────────
-c5, c6 = st.columns(2)
-
-with c5:
-    fig_margin = px.bar(
-        df.sort_values("Rev_Margin_BPS"),
-        x="Rev_Margin_BPS", y="Merchant", orientation="h",
-        color_discrete_sequence=[GOLD_COLOR],
-        title="Revenue Earned per ETB Moved (Basis Points)",
-        text=df.sort_values("Rev_Margin_BPS")["Rev_Margin_BPS"].apply(lambda v: f"{v:.1f} bps"),
+# ════════════════════════════════════════════════════════════════════════════
+# CHART ROW 3 — Revenue BPS & Avg Transaction Value
+# ════════════════════════════════════════════════════════════════════════════
+ch5, ch6 = st.columns(2)
+with ch5:
+    df_bps = df[df["rev_bps"] > 0].sort_values("rev_bps")
+    fig_bps = px.bar(
+        df_bps, x="rev_bps", y="name", orientation="h",
+        color_discrete_sequence=[GOLD],
+        title="Revenue Earned per ETB Moved (Basis Points — BPS)",
+        text=df_bps["rev_bps"].apply(lambda v: f"{v:.1f} bps"),
     )
-    fig_margin.update_traces(textposition="outside")
-    fig_margin.update_layout(plot_bgcolor="white", font=dict(size=10),
-                             margin=dict(t=40, b=10, l=10, r=90),
-                             xaxis_title="Basis Points (BPS)", yaxis_title="")
-    st.plotly_chart(fig_margin, use_container_width=True)
-    st.markdown(
-        '<p class="chart-note">'
-        '<b>1 BPS = 0.01%.</b> Revenue ÷ Volume × 10,000. '
-        'Higher BPS = more revenue earned per ETB moved. '
-        'REDSEA leads this week at ~23.8 BPS (ETB 97,700 on ETB 40.97M).'
-        '</p>',
-        unsafe_allow_html=True,
-    )
+    fig_bps.update_traces(textposition="outside")
+    fig_bps.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                          margin=dict(t=40,b=10,l=10,r=80), xaxis_title="BPS", yaxis_title="")
+    st.plotly_chart(fig_bps, use_container_width=True)
+    st.caption("1 BPS = 0.01%. Revenue ÷ Volume × 10,000. Merchants with ETB 0 revenue excluded from this chart.")
 
-with c6:
+with ch6:
     fig_ticket = px.bar(
-        df.sort_values("Avg_Txn_Value"),
-        x="Avg_Txn_Value", y="Merchant", orientation="h",
-        color_discrete_sequence=[MAIN_COLOR],
-        title="Average Transaction Value by Merchant (ETB)",
-        text=df.sort_values("Avg_Txn_Value")["Avg_Txn_Value"].apply(
-            lambda v: f"{v:,.0f}" if v > 0 else "Data N/A"
-        ),
+        df.sort_values("avg_txn_value"),
+        x="avg_txn_value", y="name", orientation="h",
+        color_discrete_sequence=[NAVY],
+        title="Average Transaction Value — Successful Txns (ETB)",
+        text=df.sort_values("avg_txn_value")["avg_txn_value"].apply(lambda v: f"{v:,.0f}"),
     )
     fig_ticket.update_traces(textposition="outside")
-    fig_ticket.update_layout(plot_bgcolor="white", font=dict(size=10),
-                             margin=dict(t=40, b=10, l=10, r=90),
-                             xaxis_title="ETB", yaxis_title="")
+    fig_ticket.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                             margin=dict(t=40,b=10,l=10,r=80), xaxis_title="ETB", yaxis_title="")
     st.plotly_chart(fig_ticket, use_container_width=True)
-    st.markdown(
-        '<p class="chart-note">'
-        '<b>Average Transaction Value</b> = Total money moved ÷ Number of successful transactions. '
-        'REMITLYGLOBAL shows 0 due to data quality issue (no successful tag in dataset).'
-        '</p>',
-        unsafe_allow_html=True,
-    )
 
 st.divider()
 
-# ── FAILURE BREAKDOWN CHART ───────────────────────────────────────────────────
-st.markdown("#### Top Failure Reasons")
+# ════════════════════════════════════════════════════════════════════════════
+# FAILURE DEEP DIVE
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Failure Analysis Deep Dive</div>', unsafe_allow_html=True)
 
-failure_data = {
-    "DEEROSERVICES":      {"BLCK / reversed": 58, "XML validation failed": 45, "System Error": 7, "Currency mismatch": 5, "Missing / reversed": 1},
-    "JUBAEXPRESS":        {"Insufficient balance": 19, "System Error": 9, "Unknown error": 8, "XML validation failed": 2, "Creditor Agent error": 2},
-    "REMITLYGLOBAL":      {"System Error": 35, "Insufficient balance": 31, "Creditor Agent error": 18, "Unknown error": 9, "Auth token failure": 3},
-    "REDSEADIRECTDEPOSITS": {"Account Not Found": 2, "Insufficient Balance": 1},
-    "FINPAYAPPLICATION":  {"Insufficient balance": 1, "XML validation failed": 1},
-    "BIRRLINK":           {"Insufficient balance": 1},
-    "REDSEA":             {},
+fail_data = {
+    "DEERO SERVICES":      {"BLCK/Account Blocked→reversed": 87, "XML validation failed→reversed": 63, "System Error": 7, "Currency mismatch": 2},
+    "REMITLY GLOBAL":      {"Creditor Agent error→reversed": 57, "System Error": 52, "Transaction not found": 33, "Insufficient balance": 32, "CIF harmonization block": 22, "Unknown error": 16},
+    "RED SEA DIRECT DEPOSITS": {"Insufficient balance": 63, "Unknown error": 42, "System Error": 28, "CIF harmonization block": 26, "Missing data→reversed": 4},
+    "JUBA EXPRESS":        {"System Error": 24, "Insufficient balance": 24, "XML validation failed": 21, "CIF harmonization block": 21, "Unknown error": 12},
+    "RAFIKI (NALA)":       {"Transaction not found": 14, "Transaction Failed": 3, "State Cancelled": 2, "Customer not registered": 1, "JDBC Error": 1},
+    "FINPAY APP (EMAAL)":  {"Transaction Failed": 3, "Missing data": 1, "ERRR reversed": 1, "Insufficient balance": 1, "CreditParty invalid": 1},
+    "BAKAAL EXPRESS":      {"XML validation": 1, "Currency mismatch": 1, "Missing data": 1, "Unknown": 1},
+    "MELA FINANCE":        {"Auth token failure": 2, "No reason recorded": 1},
+    "BIRR LINK":           {"Exception on bank transfer": 1, "Insufficient balance": 1},
+    "RED SEA":             {"XML validation→reversed": 2, "Missing data→reversed": 2},
 }
 
 fail_rows = []
-for merchant, reasons in failure_data.items():
+for merchant, reasons in fail_data.items():
     for reason, count in reasons.items():
         fail_rows.append({"Merchant": merchant, "Reason": reason, "Count": count})
-
 fail_df = pd.DataFrame(fail_rows)
 
-if not fail_df.empty:
-    fig_fail_detail = px.bar(
-        fail_df,
-        x="Count", y="Reason", color="Merchant",
-        orientation="h",
-        color_discrete_sequence=[MAIN_COLOR, GOLD_COLOR, "#1a5276", "#b8860b", "#2e86c1", "#c0a060", "#0d2d52"],
-        title="Failure Reasons Across All Merchants; Count of Occurrences",
-        text="Count",
-    )
-    fig_fail_detail.update_traces(textposition="outside")
-    fig_fail_detail.update_layout(
-        plot_bgcolor="white", font=dict(size=10),
-        margin=dict(t=40, b=10, l=10, r=10),
-        xaxis_title="Count", yaxis_title="",
-        height=420,
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    )
-    st.plotly_chart(fig_fail_detail, use_container_width=True)
-
-st.divider()
-
-# ── AUDIT TABLE ───────────────────────────────────────────────────────────────
-st.markdown("#### Comprehensive Weekly Audit Trail")
-
-audit_df = df[[
-    "Merchant", "Channel", "Risk", "Total_Txns", "Successful", "Failed",
-    "Pending", "Volume", "Revenue", "Avg_Charge", "Avg_Txn_Value",
-    "Success_Rate", "Est_Failed_Value",
-]].copy()
-audit_df.columns = [
-    "Merchant", "Channel", "Risk", "Total Txns", "Successful", "Failed",
-    "Pending", "Volume (ETB)", "Revenue (ETB)", "Avg Charge (ETB)",
-    "Avg Transaction Value (ETB)", "Success Rate (%)", "Est. Value in Failed Txns (ETB)",
-]
-
-st.dataframe(
-    audit_df.style
-    .format({
-        "Volume (ETB)":                    "{:,.2f}",
-        "Revenue (ETB)":                   "{:,.2f}",
-        "Avg Charge (ETB)":                "{:,.2f}",
-        "Avg Transaction Value (ETB)":     "{:,.2f}",
-        "Success Rate (%)":                "{:.2f}%",
-        "Est. Value in Failed Txns (ETB)": "{:,.2f}",
-    })
-    .applymap(
-        lambda v: "background-color:#fdecea" if isinstance(v, str) and v == "High"
-        else ("background-color:#fef9e7" if isinstance(v, str) and v == "Medium" else ""),
-        subset=["Risk"],
-    )
-    .bar(subset=["Success Rate (%)"], color=["#c0392b", "#1e8449"], vmin=75, vmax=100)
-    .bar(subset=["Volume (ETB)"], color="#d6e4f0"),
-    use_container_width=True, height=320,
+fig_fd = px.bar(
+    fail_df, x="Count", y="Reason", color="Merchant", orientation="h",
+    color_discrete_sequence=CHART_COLORS,
+    title="Failure Reasons Across All Merchants — May 2026",
+    text="Count",
 )
+fig_fd.update_traces(textposition="outside")
+fig_fd.update_layout(
+    plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+    margin=dict(t=40,b=10,l=10,r=10), height=480,
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+)
+st.plotly_chart(fig_fd, use_container_width=True)
+
+# CIF + Telebirr summary
+col_a, col_b = st.columns(2)
+with col_a:
+    cif_data = {m["name"]: m["cif_issues"] for m in merchants if m["cif_issues"] > 0}
+    fig_cif = px.bar(
+        x=list(cif_data.keys()), y=list(cif_data.values()),
+        color_discrete_sequence=[RED],
+        title="CIF Harmonization Account Restrictions (CBE) by Merchant",
+        text=list(cif_data.values()),
+    )
+    fig_cif.update_traces(textposition="outside")
+    fig_cif.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                          xaxis_title="", yaxis_title="Cases", margin=dict(t=40,b=10,l=10,r=10))
+    st.plotly_chart(fig_cif, use_container_width=True)
+    st.caption(f"Total CIF blocks across portfolio: {sum(m['cif_issues'] for m in merchants)} cases — portfolio-wide CBE compliance event requiring escalation.")
+
+with col_b:
+    tel_data = {m["name"]: m["telebirr_failures"] for m in merchants if m["telebirr_failures"] > 0}
+    fig_tel = px.bar(
+        x=list(tel_data.keys()), y=list(tel_data.values()),
+        color_discrete_sequence=[AMBER],
+        title="Ethiotelecom/Telebirr Failures by Merchant (100% failure rate)",
+        text=list(tel_data.values()),
+    )
+    fig_tel.update_traces(textposition="outside")
+    fig_tel.update_layout(plot_bgcolor="white", font=dict(family="DM Sans", size=10),
+                          xaxis_title="", yaxis_title="Failed Txns", margin=dict(t=40,b=10,l=10,r=10))
+    st.plotly_chart(fig_tel, use_container_width=True)
+    st.caption("Telebirr integration is completely non-functional. Must be suspended platform-wide until resolved.")
 
 st.divider()
 
-# ── STRATEGIC OBSERVATIONS ────────────────────────────────────────────────────
-st.markdown("#### Strategic Observations & Flags")
+# ════════════════════════════════════════════════════════════════════════════
+# FX SECTION
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">FX Rate Monitoring — May 2026</div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="flag-banner">
+⚠️ <strong>FX Data Gap — Action Required:</strong> Finance team submitted opening rates for 22 May only.
+Closing rates and daily rates for May 1–21 and May 23–31 were not received.
+A shared FX tracking Excel has been established — Finance team to log daily rates going forward starting June 2026.
+</div>
+""", unsafe_allow_html=True)
 
-observations = [
-    ("⚠ CRITICAL; DEEROSERVICES: High Failure Rate Persists",
-     "116 out of 969 transactions failed (~12% failure rate). Compared to last week's 154 failures (19.7%), this is an improvement, "
-     "but still significantly above acceptable thresholds. Key failure clusters: BLCK reversals (58 cases), XML validation failures (45), "
-     "System Errors (7), Currency mismatches (5). Escalation is still required; improvement is not enough."),
-    ("Top Revenue Generator; JUBAEXPRESS",
-     "ETB 213,227.96 in charges this week; up 13.7% from ETB 187,550.80 last week. "
-     "Highest revenue earner this cycle. 1,755 total transactions with 42 failures (2.4% failure rate). "
-     "Insufficient balance (19 cases) is the top failure driver; funding adequacy should be reviewed."),
-    ("REDSEA; Revenue More Than Doubled",
-     "Revenue jumped to ETB 97,700.43 this week from ETB 49,819.36 last week; a 96.1% increase. "
-     "All 46 transactions were successful (100% success rate). Volume slightly dipped to ETB 40.97M from ETB 41.98M. "
-     "Avg charge rose to ETB 2,123.92 from ETB 1,845.16; worth confirming if fee structure changed."),
-    ("REDSEADIRECTDEPOSITS; Revenue Drop, Volume Up",
-     "Revenue dropped sharply to ETB 126,184.31 from ETB 451,954.15 last week; a 72% decline. "
-     "Volume increased to ETB 52.88M from ETB 45.2M. 3 failures (Account Not Found x2, Insufficient Balance x1) and 1 pending transaction noted. "
-     "The revenue drop may reflect a different transaction mix (DIRECT_DEPOSIT vs DISBURSEMENTS); review billing logic."),
-    ("FINPAYAPPLICATION; Strong Week, Revenue Up",
-     "ETB 74,893.00 revenue; up from ETB 60,879 last week. 828 transactions with only 2 failures (0.24%); near-perfect performance. "
-     "Volume surged to ETB 55.97M from ETB 28.03M last week; a 99.7% increase in money moved. "
-     "Avg charge remains flat at ~91 ETB; consistent flat-fee model confirmed."),
-    ("⚠ FLAG; BIRRLINK: Zero Revenue Continues (3rd Consecutive Week)",
-     "ETB 0.00 charges again across 20 successful transactions. 1 failure (insufficient balance). "
-     "This is now the third week in a row with zero revenue. Fee arrangement documentation is critically overdue. "
-     "Volume also declined slightly; ETB 641,020 vs ETB 615,078 last week."),
-    ("Zero-Revenue Merchants; BIRRLINK and REMITLYGLOBAL",
-     "Both posted ETB 0.00 again this week. REMITLYGLOBAL's zero revenue is expected (international remittance model). "
-     "BIRRLINK's zero revenue remains unexplained. Formal confirmation of fee waiver or absorbed-cost arrangement must be documented."),
-    ("Overall Portfolio Success Rate",
-     "Average success rate this week: ~96.6% (excluding REMITLYGLOBAL data quality issue). "
-     "REDSEA (100%), FINPAYAPPLICATION (99.76%), and REDSEADIRECTDEPOSITS (97.5%) are the top performers. "
-     "DEEROSERVICES remains the single largest drag on portfolio performance at ~88% success rate."),
+fx_cols = st.columns(3)
+fx_items = [
+    ("ETB/USD", "184.00", "Not received", "22 May 2026", "Ethiopian Birr — primary transaction currency. Historically volatile. Confirmed opening rate only."),
+    ("KES/USD", "129.00", "Not received", "22 May 2026", "Kenyan Shilling. Confirmed opening rate; same as of 25 May 2026 per Finance team."),
+    ("UGX/USD", "3,772.00", "Not received", "22 May 2026", "Ugandan Shilling. Opening rate confirmed only."),
 ]
-
-for title, body in observations:
-    st.markdown(f"""
-    <div class="observation-box">
-      <strong style="color:{MAIN_COLOR};">{title}</strong><br>{body}
+for col, (pair, opening, closing, date, note) in zip(fx_cols, fx_items):
+    col.markdown(f"""
+    <div class="scorecard">
+      <div style="font-size:11px;color:{GOLD};font-weight:600;letter-spacing:1px;">{pair}</div>
+      <div style="font-size:20px;font-weight:600;color:{NAVY};margin:4px 0;">{opening}</div>
+      <div style="font-size:11px;color:#888;">Opening Rate · {date}</div>
+      <div style="font-size:11px;color:{RED};margin-top:4px;">Closing: {closing}</div>
+      <div style="font-size:11px;color:#666;margin-top:6px;">{note}</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.divider()
 
-# ── PER-MERCHANT EXPANDERS ────────────────────────────────────────────────────
-st.markdown("#### Per-Merchant Detail")
+# ════════════════════════════════════════════════════════════════════════════
+# RISK SCORECARD
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Monthly Merchant Risk Scorecard</div>', unsafe_allow_html=True)
+st.caption("Each merchant scored across 6 dimensions: Transaction Volume, Revenue, Failure/Reversal Performance, FX Exposure, KYC Compliance, and Overall Risk.")
 
-for _, row in df.iterrows():
-    with st.expander(f"{row['Merchant']}  |  {row['Risk']} Risk  |  Success Rate: {row['Success_Rate']:.2f}%  |  Period: {row['DateRange']}"):
-        d1, d2, d3, d4 = st.columns(4)
-        d1.metric("Total Transactions", f"{row['Total_Txns']:,}")
-        d2.metric("Total Moved (ETB)",  f"{row['Volume']:,.2f}" if row["Volume"] > 0 else "Data N/A")
-        d3.metric("Revenue (ETB)",      f"{row['Revenue']:,.2f}")
-        d4.metric("Failed Transactions", str(int(row["Failed"])))
+score_data = []
+for m in merchants:
+    sr = (m["successful"] / m["total_txns"]) * 100
+    score_data.append({
+        "Merchant": m["name"],
+        "Volume Score": "🟢 High" if m["volume"] > 100e6 else ("🟡 Med" if m["volume"] > 10e6 else "🔴 Low"),
+        "Revenue": "🚨 Zero" if m["revenue"] == 0 else ("🟢 Strong" if m["revenue"] > 500000 else "🟡 Moderate"),
+        "Success Rate": f"{sr:.1f}%",
+        "Failure Risk": "🔴 High" if sr < 85 else ("🟡 Med" if sr < 97 else "🟢 Low"),
+        "FX Exposure": "🟡 Medium" if m["channel"] in ["Bank", "Bank + Mobile"] else "🟢 Low",
+        "KYC Status": "🟢 Complete",
+        "Charges on Failed": f"ETB {m['charges_on_failed']:,.0f}" if m["charges_on_failed"] > 0 else "—",
+        "Overall Risk": m["risk_level"],
+    })
 
-        d5, d6, d7 = st.columns(3)
-        d5.metric("Avg Transaction Value (ETB)", f"{row['Avg_Txn_Value']:,.2f}" if row["Avg_Txn_Value"] > 0 else "Data N/A")
-        d6.metric("Avg Charge per Transaction",  f"ETB {row['Avg_Charge']:,.2f}")
-        d7.metric("Channel", row["Channel"])
+score_df = pd.DataFrame(score_data)
 
-        st.markdown(f"**Transaction Types:** {row['TxnTypes']}")
-        st.markdown(f"**Top Failure Reasons:** {row['Top_Failures']}")
-        if row["Notes"]:
-            st.markdown(f'<div class="flag-box">{row["Notes"]}</div>', unsafe_allow_html=True)
+def color_risk(val):
+    if val == "High":   return f"background-color:{RED};color:white;font-weight:bold"
+    if val == "Medium": return f"background-color:{AMBER};color:white;font-weight:bold"
+    if val == "Low":    return f"background-color:{GREEN};color:white;font-weight:bold"
+    return ""
+
+styled = score_df.style.applymap(color_risk, subset=["Overall Risk"])
+st.dataframe(styled, use_container_width=True, height=380)
+
+# Risk distribution donut
+risk_counts = df["risk_level"].value_counts().reset_index()
+risk_counts.columns = ["Risk Level", "Count"]
+fig_risk = px.pie(risk_counts, names="Risk Level", values="Count",
+                  color="Risk Level",
+                  color_discrete_map={"High": RED, "Medium": AMBER, "Low": GREEN},
+                  title="Portfolio Risk Distribution — May 2026",
+                  hole=0.4)
+fig_risk.update_layout(font=dict(family="DM Sans", size=11), margin=dict(t=40,b=10,l=10,r=10))
+st.plotly_chart(fig_risk, use_container_width=True)
 
 st.divider()
 
-# ── WEEK-ON-WEEK COMPARISON ───────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════════════════════
+# AUDIT TABLE
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Comprehensive Monthly Audit Trail</div>', unsafe_allow_html=True)
+
+audit_df = df[[
+    "name","channel","risk_level","total_txns","successful","failed","pending",
+    "volume","revenue","avg_charge","avg_txn_value","success_rate","failed_value"
+]].copy()
+audit_df.columns = [
+    "Merchant","Channel","Risk","Total Txns","Successful","Failed","Pending",
+    "Volume (ETB)","Revenue (ETB)","Avg Charge","Avg Txn Value","Success Rate %","Est Failed Value"
+]
+
+st.dataframe(
+    audit_df.style
+    .format({
+        "Volume (ETB)":     "{:,.0f}",
+        "Revenue (ETB)":    "{:,.0f}",
+        "Avg Charge":       "{:,.2f}",
+        "Avg Txn Value":    "{:,.0f}",
+        "Success Rate %":   "{:.2f}%",
+        "Est Failed Value": "{:,.0f}",
+    })
+    .applymap(lambda v: f"background-color:{RED};color:white" if isinstance(v,str) and v=="High"
+              else (f"background-color:{AMBER}" if isinstance(v,str) and v=="Medium"
+              else (f"background-color:{GREEN};color:white" if isinstance(v,str) and v=="Low" else "")),
+              subset=["Risk"])
+    .bar(subset=["Success Rate %"], color=["#c0392b","#1e8449"], vmin=0, vmax=100)
+    .bar(subset=["Volume (ETB)"], color="#d6e4f0"),
+    use_container_width=True, height=380,
+)
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════════════════════
+# STRATEGIC OBSERVATIONS
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Strategic Observations & Recommendations</div>', unsafe_allow_html=True)
+
+obs = [
+    ("🔴 CRITICAL — Ethiotelecom/Telebirr Integration: Platform-Wide Failure",
+     "100% failure rate confirmed across two merchants — REMITLY GLOBAL (42 failures, ETB 347K) and RAFIKI/NALA (21 failures, ETB 314K). "
+     "Combined: 63 transactions, ETB 661K completely blocked. This is a platform-wide integration failure, not a merchant-specific issue. "
+     "Recommendation: Suspend Telebirr channel across all merchants immediately until integration is repaired by technical team. "
+     "Assign Raymond/Tahir to diagnose and fix the Telebirr API handshake failure urgently.", True),
+    ("🔴 CRITICAL — CBE CIF Harmonization Account Restriction: Portfolio-Wide Event",
+     "91 transactions blocked across 3 merchants this month — REDSEADIRECTDEPOSITS (26), JUBAEXPRESS (21), REMITLY GLOBAL (22), with DEEROSERVICES also showing 0 but CBO failures indicating related issues. "
+     "This is a CBE compliance sweep affecting customer accounts. FinPay's CBE relationship manager must be engaged immediately to understand the scope and timeline. "
+     "Recommendation: Compile list of all affected account numbers and raise formally with CBE. Notify affected merchants.", True),
+    ("🔴 CRITICAL — DEEROSERVICES: 16.65% Failure Rate (4th+ Consecutive Period)",
+     "159 failures out of 955 transactions this month — 100% concentrated at Kaafi MFI (84 failures, BLCK errors) and CBO (71 failures, XML validation). "
+     "ACCOUNT_DEBIT stream is 100% clean — the problem is entirely in disbursements through these two banks. "
+     "Recommendation: Route all DEEROSERVICES disbursements away from Kaafi MFI and CBO immediately. Fix CBO XML integration or disable channel. "
+     "ETB 14,469 charged on 159 failed transactions — refund required.", True),
+    ("🔴 CRITICAL — BIRRLINK & REMITLY: ETB 0.00 Revenue on ETB 468M+ Combined",
+     "BIRRLINK: 4th consecutive period of zero revenue on 52 transactions (ETB 1.84M). "
+     "REMITLY: ETB 0 on 15,066 transactions and ETB 467M moved. Combined zero-revenue exposure: ETB 468.9M processed this month with no FinPay income. "
+     "REMITLY's model (fees at origin) needs formal documentation. BIRRLINK's arrangement is unexplained and commercially damaging. "
+     "Recommendation: Commercial/Finance team to resolve BIRRLINK fee arrangement this week. Obtain formal revenue agreement documentation from REMITLY.", True),
+    ("🟡 Charges Collected on Failed Transactions — Portfolio-Wide Refund Required",
+     f"Total ETB {total_charged_on_failed:,.0f} was charged on transactions that ultimately failed across the portfolio: "
+     "REDSEADIRECTDEPOSITS (ETB 99,113), DEEROSERVICES (ETB 14,469), JUBAEXPRESS (ETB 14,139), RAFIKILTD (ETB 1,911), BAKAALEXPRESS (ETB 315), MELAFINANCE (ETB 247), FINPAYAPPLICATION (ETB 455). "
+     "Recommendation: Finance team to audit all failed-transaction charges and process refunds. Policy decision needed on whether failed transactions should carry zero charges.", False),
+    ("🟢 Portfolio Strength — FINPAYAPPLICATION (EMAAL) & JUBAEXPRESS",
+     "FINPAYAPPLICATION delivered the highest total value (ETB 358M), best success rate (99.85%), and highest avg transaction value (ETB 75,458) with only 7 failures across 4,756 transactions. "
+     "JUBAEXPRESS leads on transaction count (8,042) and revenue (ETB 1,008,230). Both merchants show clean operations with broad bank diversification. "
+     "FINPAYAPPLICATION is also the only major merchant with zero CIF harmonization failures — understanding why could inform protective measures for other merchants.", False),
+    ("🟢 New Merchants Onboarding — BAKAALEXPRESS & MELAFINANCE Performing Well",
+     "Both new merchants show strong early performance: BAKAALEXPRESS at 98.67% success (300 txns), MELAFINANCE at 95% (60 txns in first 2 weeks). "
+     "Both use percentage-based fee models, unique in the portfolio. MELAFINANCE's auth token failures (2 cases) should be resolved quickly as a priority integration fix.", False),
+]
+
+for title, body, critical in obs:
+    card_class = "crit-card" if critical else "obs-card"
+    st.markdown(f'<div class="{card_class}"><strong>{title}</strong><br><br>{body}</div>', unsafe_allow_html=True)
+
+st.divider()
+
+# ════════════════════════════════════════════════════════════════════════════
+# PER-MERCHANT EXPANDERS
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown('<div class="section-title">Per-Merchant Detail</div>', unsafe_allow_html=True)
+
+risk_badge = {"High": "badge-high", "Medium": "badge-med", "Low": "badge-low"}
+
+for m in merchants:
+    sr = (m["successful"] / m["total_txns"]) * 100
+    badge = risk_badge[m["risk_level"]]
+    with st.expander(f"{m['name']}  ·  {m['channel']}  ·  {sr:.1f}% success  ·  {m['period']}"):
+        d1,d2,d3,d4,d5 = st.columns(5)
+        d1.metric("Total Transactions", f"{m['total_txns']:,}")
+        d2.metric("Successful", f"{m['successful']:,}")
+        d3.metric("Failed", f"{m['failed']:,}")
+        d4.metric("Value Moved (ETB)", f"{m['volume']/1e6:.1f}M")
+        d5.metric("Revenue (ETB)", f"{m['revenue']:,.0f}")
+
+        d6,d7,d8,d9 = st.columns(4)
+        d6.metric("Avg Charge", f"ETB {m['avg_charge']:,.2f}")
+        d7.metric("Avg Txn Value", f"ETB {m['avg_txn_value']:,.0f}")
+        d8.metric("Est. Failed Value", f"ETB {m['failed_value']:,.0f}")
+        d9.metric("Charges on Failed", f"ETB {m['charges_on_failed']:,.0f}" if m['charges_on_failed'] > 0 else "—")
+
+        st.markdown(f"**Country:** {m['country']} &nbsp;|&nbsp; **Channel:** {m['channel']} &nbsp;|&nbsp; **Transaction Types:** {', '.join(m['txn_types'])} &nbsp;|&nbsp; **Banks Used:** {m['banks_used']} &nbsp;|&nbsp; **Top Bank:** {m['top_bank']}")
+        if m["mobile"]:
+            st.markdown(f"**Mobile Networks:** {', '.join(m['mobile_networks'])} &nbsp;|&nbsp; **Mobile Txns:** {m.get('mobile_txns',0)} &nbsp;|&nbsp; **Mobile Value:** ETB {m.get('mobile_volume',0):,.0f} &nbsp;|&nbsp; **Mobile Revenue:** ETB {m.get('mobile_revenue',0):,.0f}")
+        if m["cif_issues"] > 0:
+            st.warning(f"⚠️ CIF Harmonization Blocks: {m['cif_issues']} cases — CBE compliance event")
+        if m["telebirr_failures"] > 0:
+            st.error(f"🚨 Telebirr/Ethiotelecom: {m['telebirr_failures']} failures — 100% failure rate on this channel")
+        st.markdown(f"**Top Failure Reasons:** {m['top_failures']}")
+        st.info(m["notes"])
+
+st.divider()
+
+# Critical flags banner
+crit_flags = []
+for m in merchants:
+    if m["telebirr_failures"] > 10: crit_flags.append(f"⛔ Ethiotelecom/Telebirr 100% failure across {m['name']} ({m['telebirr_failures']} txns blocked)")
+if sum(m["cif_issues"] for m in merchants) > 0:
+    total_cif = sum(m["cif_issues"] for m in merchants)
+    crit_flags.append(f"🔴 Portfolio-wide CBE CIF harmonization event: {total_cif} blocked accounts across 3 merchants")
+for m in merchants:
+    if m["revenue"] == 0 and m["total_txns"] > 20:
+        crit_flags.append(f"⚠️ {m['name']}: ETB 0.00 revenue — fee arrangement undocumented")
+
+for flag in crit_flags[:5]:
+    st.markdown(f'<div class="flag-banner">{flag}</div>', unsafe_allow_html=True)
+
+# ════════════════════════════════════════════════════════════════════════════
+# FOOTER
+# ════════════════════════════════════════════════════════════════════════════
 st.markdown(f"""
-<div class="compare-header">
-  <span style="font-size:18px; font-weight:700; color:white;">
-    Week-on-Week Comparison &nbsp;|&nbsp; Apr 20–26 vs Apr 27–May 3, 2026
+<div style="background:{NAVY};color:white;padding:20px 28px;border-radius:8px;margin-top:20px;font-size:12px;opacity:0.9;">
+  <strong style="font-family:'DM Serif Display',serif;font-size:16px;">FinPay Tech · Monthly Report · May 2026</strong><br>
+  <span style="opacity:0.6;font-size:10px;">
+  FX data gap: Finance submitted 22 May opening rates only — daily FX tracking Excel established for June onwards.
+  Data source: FinPay transaction portal exports. Analysis by PM.
   </span>
 </div>
 """, unsafe_allow_html=True)
 
-st.markdown(
-    '<p class="chart-note" style="font-size:12px; color:#444;">'
-    '<b>What does "Change vs Last Week" mean?</b> It shows how much a number went up or down compared to the previous week. '
-    'A <span style="color:#1e8449;font-weight:bold;">green positive number</span> means improvement. '
-    'A <span style="color:#c0392b;font-weight:bold;">red negative number</span> means it got worse. '
-    'For failed transactions, fewer failures = better, so a decrease is shown in green. '
-    'Note: REMITLYGLOBAL volume comparison is unreliable due to data quality issue in current week.'
-    '</p>',
-    unsafe_allow_html=True,
-)
-
-# Build merged comparison dataframe
-comp = df[["Merchant", "Volume", "Revenue", "Total_Txns", "Failed", "Success_Rate", "Avg_Txn_Value"]].copy()
-comp.columns = ["Merchant", "Vol_CW", "Rev_CW", "Txns_CW", "Failed_CW", "SR_CW", "Ticket_CW"]
-prev_cols = df_prev[["Merchant", "Volume", "Revenue", "Total_Txns", "Failed", "Success_Rate", "Avg_Txn_Value"]].copy()
-prev_cols.columns = ["Merchant", "Vol_PW", "Rev_PW", "Txns_PW", "Failed_PW", "SR_PW", "Ticket_PW"]
-merged = comp.merge(prev_cols, on="Merchant", how="left")
-
-# Portfolio-level KPI changes
-cw_vol  = df[df["Merchant"] != "REMITLYGLOBAL"]["Volume"].sum()
-pw_vol  = df_prev[df_prev["Merchant"] != "REMITLYGLOBAL"]["Volume"].sum()
-cw_rev  = df["Revenue"].sum()
-pw_rev  = df_prev["Revenue"].sum()
-cw_txns = df["Total_Txns"].sum()
-pw_txns = df_prev["Total_Txns"].sum()
-cw_fail = df["Failed"].sum()
-pw_fail = df_prev["Failed"].sum()
-
-def delta_pct(cw, pw):
-    if pw == 0:
-        return None
-    return ((cw - pw) / pw) * 100
-
-st.markdown("##### Portfolio Totals; Change vs Last Week")
-w1, w2, w3, w4 = st.columns(4)
-d_vol  = delta_pct(cw_vol, pw_vol)
-d_rev  = delta_pct(cw_rev, pw_rev)
-d_txns = delta_pct(cw_txns, pw_txns)
-d_fail = delta_pct(cw_fail, pw_fail)
-
-w1.metric("Total Money Moved (Excl. REMITLY)", f"ETB {cw_vol/1e6:.1f}M",
-          delta=f"{'+' if d_vol>=0 else ''}{d_vol:.1f}% vs last week")
-w2.metric("Total Revenue",        f"ETB {cw_rev:,.0f}",
-          delta=f"{'+' if d_rev>=0 else ''}{d_rev:.1f}% vs last week")
-w3.metric("Total Transactions",   f"{cw_txns:,}",
-          delta=f"{'+' if d_txns>=0 else ''}{d_txns:.1f}% vs last week")
-w4.metric("Total Failed",         f"{int(cw_fail)}",
-          delta=f"{'+' if d_fail>=0 else ''}{d_fail:.1f}% vs last week", delta_color="inverse")
-
-st.markdown("---")
-st.markdown("##### Merchant-by-Merchant Breakdown")
-
-# Volume WoW
-fig_wow_vol = go.Figure()
-fig_wow_vol.add_trace(go.Bar(
-    name="Apr 20–26 (Last Week)",
-    x=merged["Merchant"], y=merged["Vol_PW"],
-    marker_color=GOLD_COLOR,
-    text=[f"{v/1e6:.1f}M" for v in merged["Vol_PW"]], textposition="outside",
-))
-fig_wow_vol.add_trace(go.Bar(
-    name="Apr 27–May 3 (This Week)",
-    x=merged["Merchant"], y=merged["Vol_CW"],
-    marker_color=MAIN_COLOR,
-    text=[f"{v/1e6:.1f}M" if v > 0 else "N/A" for v in merged["Vol_CW"]], textposition="outside",
-))
-fig_wow_vol.update_layout(
-    barmode="group", title="Money Moved; Last Week vs This Week (ETB)",
-    plot_bgcolor="white", font=dict(size=10),
-    margin=dict(t=40, b=10, l=10, r=10),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-)
-
-# Revenue WoW
-fig_wow_rev = go.Figure()
-fig_wow_rev.add_trace(go.Bar(
-    name="Apr 20–26 (Last Week)",
-    x=merged["Merchant"], y=merged["Rev_PW"],
-    marker_color=GOLD_COLOR,
-    text=[f"{v:,.0f}" for v in merged["Rev_PW"]], textposition="outside",
-))
-fig_wow_rev.add_trace(go.Bar(
-    name="Apr 27–May 3 (This Week)",
-    x=merged["Merchant"], y=merged["Rev_CW"],
-    marker_color=MAIN_COLOR,
-    text=[f"{v:,.0f}" for v in merged["Rev_CW"]], textposition="outside",
-))
-fig_wow_rev.update_layout(
-    barmode="group", title="Revenue; Last Week vs This Week (ETB)",
-    plot_bgcolor="white", font=dict(size=10),
-    margin=dict(t=40, b=10, l=10, r=10),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-)
-
-wc1, wc2 = st.columns(2)
-with wc1:
-    st.plotly_chart(fig_wow_vol, use_container_width=True)
-with wc2:
-    st.plotly_chart(fig_wow_rev, use_container_width=True)
-
-# Success Rate WoW
-fig_wow_sr = go.Figure()
-fig_wow_sr.add_trace(go.Bar(
-    name="Apr 20–26 (Last Week)",
-    x=merged["Merchant"], y=merged["SR_PW"],
-    marker_color=GOLD_COLOR,
-    text=[f"{v:.1f}%" for v in merged["SR_PW"]], textposition="outside",
-))
-fig_wow_sr.add_trace(go.Bar(
-    name="Apr 27–May 3 (This Week)",
-    x=merged["Merchant"], y=merged["SR_CW"],
-    marker_color=MAIN_COLOR,
-    text=[f"{v:.1f}%" for v in merged["SR_CW"]], textposition="outside",
-))
-fig_wow_sr.update_layout(
-    barmode="group", title="Success Rate; Last Week vs This Week (%)",
-    plot_bgcolor="white", font=dict(size=10),
-    yaxis=dict(range=[70, 105]),
-    margin=dict(t=40, b=10, l=10, r=10),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-)
-
-# Failed Transactions WoW
-fig_wow_fail = go.Figure()
-fig_wow_fail.add_trace(go.Bar(
-    name="Apr 20–26 (Last Week)",
-    x=merged["Merchant"], y=merged["Failed_PW"],
-    marker_color=GOLD_COLOR,
-    text=[str(int(v)) for v in merged["Failed_PW"]], textposition="outside",
-))
-fig_wow_fail.add_trace(go.Bar(
-    name="Apr 27–May 3 (This Week)",
-    x=merged["Merchant"], y=merged["Failed_CW"],
-    marker_color="#c0392b",
-    text=[str(int(v)) for v in merged["Failed_CW"]], textposition="outside",
-))
-fig_wow_fail.update_layout(
-    barmode="group", title="Failed Transactions; Last Week vs This Week",
-    plot_bgcolor="white", font=dict(size=10),
-    margin=dict(t=40, b=10, l=10, r=10),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-)
-
-wc3, wc4 = st.columns(2)
-with wc3:
-    st.plotly_chart(fig_wow_sr, use_container_width=True)
-with wc4:
-    st.plotly_chart(fig_wow_fail, use_container_width=True)
-
-# ── Detailed WoW Summary Table ────────────────────────────────────────────────
-st.markdown("##### Detailed Change vs Last Week; Summary Table")
-st.markdown(
-    '<p class="chart-note">'
-    'PW = Previous Week (Apr 20–26) | CW = Current Week (Apr 27–May 3) | '
-    'Change = how much it moved up or down | SR = Success Rate | '
-    '"Change in SR" = percentage point change in success rate | '
-    '* REMITLYGLOBAL volume flagged; data quality issue'
-    '</p>',
-    unsafe_allow_html=True,
-)
-
-rows = []
-for _, r in merged.iterrows():
-    dv  = delta_pct(r["Vol_CW"],    r["Vol_PW"])
-    drv = delta_pct(r["Rev_CW"],    r["Rev_PW"])
-    dt  = delta_pct(r["Txns_CW"],   r["Txns_PW"])
-    df_ = delta_pct(r["Failed_CW"], r["Failed_PW"])
-    dsr = r["SR_CW"] - r["SR_PW"] if pd.notna(r["SR_PW"]) else None
-
-    def fmt(v, pct=True, invert=False):
-        if v is None or (isinstance(v, float) and pd.isna(v)):
-            return "n/a"
-        sign = "+" if v >= 0 else ""
-        unit = "%" if pct else " pts"
-        good = (v > 0) if not invert else (v < 0)
-        color = "#1e8449" if good else "#c0392b"
-        return f'<span style="color:{color};font-weight:bold">{sign}{v:.1f}{unit}</span>'
-
-    vol_note = " *" if r["Merchant"] == "REMITLYGLOBAL" else ""
-
-    rows.append({
-        "Merchant":                      r["Merchant"],
-        "Vol Last Wk (M)":               f"{r['Vol_PW']/1e6:.1f}",
-        "Vol This Wk (M)":               f"{r['Vol_CW']/1e6:.1f}{vol_note}",
-        "Volume Change":                 fmt(dv) if r["Merchant"] != "REMITLYGLOBAL" else '<span style="color:#888">Data Issue</span>',
-        "Rev Last Wk":                   f"{r['Rev_PW']:,.0f}",
-        "Rev This Wk":                   f"{r['Rev_CW']:,.0f}",
-        "Revenue Change":                fmt(drv) if r["Rev_PW"] > 0 else "n/a",
-        "Txns Last Wk":                  str(int(r["Txns_PW"])),
-        "Txns This Wk":                  str(int(r["Txns_CW"])),
-        "Txns Change":                   fmt(dt),
-        "Failed Last Wk":                str(int(r["Failed_PW"])),
-        "Failed This Wk":                str(int(r["Failed_CW"])),
-        "Failed Change":                 fmt(df_, invert=True),
-        "Success Rate Last Wk":          f"{r['SR_PW']:.1f}%",
-        "Success Rate This Wk":          f"{r['SR_CW']:.1f}%",
-        "Change in Success Rate":        fmt(dsr, pct=False),
-    })
-
-wow_df = pd.DataFrame(rows)
-st.write(wow_df.to_html(escape=False, index=False), unsafe_allow_html=True)
-
-st.divider()
-
-# ── PDF ENGINE ────────────────────────────────────────────────────────────────
-def generate_pdf(dataframe, prev_df, fig_vol, fig_rev, fig_sr, fig_fail,
-                 fig_margin, fig_ticket, fig_wow_vol, fig_wow_rev, fig_wow_sr, fig_wow_fail):
-
-    def img(fig, w=700, h=380):
-        return io.BytesIO(fig.to_image(format="png", width=w, height=h, scale=2))
-
-    pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=12)
-
-    def header_band(title_text, subtitle=""):
-        pdf.set_fill_color(*MAIN_RGB)
-        pdf.rect(0, 0, 210, 30, "F")
-        pdf.set_fill_color(*GOLD_RGB)
-        pdf.rect(0, 30, 210, 2, "F")
-        pdf.set_text_color(255, 255, 255)
-        pdf.set_font("Arial", "B", 13)
-        pdf.text(10, 13, safe(title_text))
-        if subtitle:
-            pdf.set_font("Arial", size=8)
-            pdf.text(10, 21, safe(subtitle))
-            pdf.text(10, 27, safe(f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}"))
-
-    # PAGE 1: KPIs + Charts + Audit
-    pdf.add_page()
-    header_band(
-        "MERCHANT 360 | WEEKLY STRATEGIC REPORT",
-        "Analytics Cycle: April 27 - May 3, 2026  |  7 Merchants  |  Ethiopia (ETB)"
-    )
-
-    kpi_items = [
-        ("Total Revenue",          f"ETB {dataframe['Revenue'].sum():,.2f}"),
-        ("Total Money Moved",      f"ETB {dataframe[dataframe['Merchant']!='REMITLYGLOBAL']['Volume'].sum()/1e6:.2f}M*"),
-        ("Total Txns",             f"{dataframe['Total_Txns'].sum():,}"),
-        ("Avg Success Rate",       f"{dataframe['Success_Rate'].mean():.1f}%"),
-        ("Est. Failed Value",      f"ETB {dataframe['Est_Failed_Value'].sum():,.0f}"),
-    ]
-    x = 10
-    for lbl, val in kpi_items:
-        pdf.set_fill_color(245, 246, 250)
-        pdf.rect(x, 35, 37, 18, "F")
-        pdf.set_fill_color(*GOLD_RGB)
-        pdf.rect(x, 35, 37, 1.5, "F")
-        pdf.set_xy(x, 38); pdf.set_font("Arial", "B", 6); pdf.set_text_color(110, 110, 110)
-        pdf.cell(37, 4, safe(lbl), 0, 1, "C")
-        pdf.set_xy(x, 43); pdf.set_font("Arial", "B", 8); pdf.set_text_color(*MAIN_RGB)
-        pdf.cell(37, 4, safe(val), 0, 1, "C")
-        x += 39
-
-    # Data quality note in PDF
-    pdf.set_xy(10, 56)
-    pdf.set_font("Arial", "I", 6); pdf.set_text_color(180, 100, 0)
-    pdf.cell(190, 4, safe("* REMITLYGLOBAL excluded from volume total; data quality issue (no successful transaction tag found in dataset)."), ln=True)
-
-    imgs4 = [img(f) for f in (fig_vol, fig_rev, fig_sr, fig_fail)]
-    pdf.image(imgs4[0], x=10,  y=63,  w=93)
-    pdf.image(imgs4[1], x=107, y=63,  w=93)
-    pdf.image(imgs4[2], x=10,  y=114, w=93)
-    pdf.image(imgs4[3], x=107, y=114, w=93)
-
-    pdf.set_xy(10, 168)
-    pdf.set_text_color(0, 0, 0); pdf.set_font("Arial", "B", 9)
-    pdf.cell(190, 7, safe("Comprehensive Weekly Audit Trail"), ln=True)
-
-    hdrs   = ["Merchant", "Vol (M ETB)", "Revenue (ETB)", "Txns", "Failed", "Success %", "Avg Txn Value"]
-    widths = [36, 27, 27, 15, 15, 24, 33]
-    pdf.set_font("Arial", "B", 7); pdf.set_fill_color(*MAIN_RGB); pdf.set_text_color(255, 255, 255)
-    for h, w in zip(hdrs, widths):
-        pdf.cell(w, 7, safe(h), 1, 0, "C", True)
-    pdf.ln()
-
-    pdf.set_font("Arial", size=7)
-    for i, (_, row) in enumerate(dataframe.iterrows()):
-        if row["Risk"] == "High":      pdf.set_fill_color(253, 235, 233)
-        elif row["Risk"] == "Medium":  pdf.set_fill_color(254, 249, 231)
-        else:
-            pdf.set_fill_color(248, 250, 252) if i % 2 == 0 else pdf.set_fill_color(255, 255, 255)
-        pdf.set_text_color(0, 0, 0)
-        vol_str = f"{row['Volume']/1e6:.2f}" if row["Volume"] > 0 else "N/A*"
-        cells = [
-            str(row["Merchant"]),
-            vol_str,
-            f"{row['Revenue']:,.0f}",
-            str(int(row["Total_Txns"])),
-            str(int(row["Failed"])),
-            f"{row['Success_Rate']:.1f}%",
-            f"{row['Avg_Txn_Value']:,.0f}" if row["Avg_Txn_Value"] > 0 else "N/A*",
-        ]
-        for val, w in zip(cells, widths):
-            pdf.cell(w, 6, safe(val), 1, 0, "C", True)
-        pdf.ln()
-
-    # PAGE 2: Observations
-    pdf.add_page()
-    pdf.set_fill_color(*MAIN_RGB); pdf.rect(0, 0, 210, 20, "F")
-    pdf.set_fill_color(*GOLD_RGB); pdf.rect(0, 20, 210, 2, "F")
-    pdf.set_text_color(255, 255, 255); pdf.set_font("Arial", "B", 11)
-    pdf.text(10, 13, safe("Strategic Observations & Flags | Week of April 27 - May 3, 2026"))
-
-    obs_pdf = [
-        ("CRITICAL - DEEROSERVICES: Failure Rate Still High",
-         "116/969 transactions failed (~12%); improvement from 19.7% last week but still unacceptable. "
-         "BLCK reversals (58), XML validation failures (45), System Errors (7), Currency mismatches (5). Escalation required."),
-        ("DATA FLAG - REMITLYGLOBAL: Dataset Quality Issue",
-         "2,834 transactions processed, 99 failures (3.5%). No successful tag found - volume shows 0. "
-         "Data pipeline review required before next reporting cycle."),
-        ("Top Revenue Generator - JUBAEXPRESS",
-         "ETB 213,227.96 in charges (+13.7% vs last week). 1,755 transactions, 42 failures (2.4%). "
-         "Insufficient balance (19 cases) is top failure - review funding adequacy."),
-        ("REDSEA - Revenue Nearly Doubled",
-         "ETB 97,700.43 revenue (+96.1% vs ETB 49,819 last week). All 46 transactions successful. "
-         "Avg charge rose to ETB 2,123.92 - confirm if fee structure changed."),
-        ("REDSEADIRECTDEPOSITS - Revenue Drop, Volume Up",
-         "Revenue dropped 72% to ETB 126,184 from ETB 451,954 last week. Volume grew to ETB 52.88M. "
-         "Mix changed to DIRECT_DEPOSIT / ACCOUNT_CREDIT this week - review billing logic."),
-        ("FINPAYAPPLICATION - Strong Week",
-         "ETB 74,893 revenue (+23%). Volume near doubled to ETB 55.97M. Only 2 failures (0.24%). Flat fee ~91 ETB confirmed."),
-        ("BIRRLINK - Zero Revenue: 3rd Week",
-         "ETB 0.00 charges for third consecutive week. Fee arrangement documentation is critically overdue."),
-    ]
-
-    y_pos = 27
-    for title, body in obs_pdf:
-        if y_pos > 265:
-            pdf.add_page(); y_pos = 15
-        pdf.set_fill_color(*GOLD_RGB); pdf.rect(10, y_pos, 2.5, 16, "F")
-        pdf.set_xy(15, y_pos + 1); pdf.set_font("Arial", "B", 9); pdf.set_text_color(*MAIN_RGB)
-        pdf.cell(183, 5, safe(title), ln=True)
-        pdf.set_xy(15, y_pos + 8); pdf.set_font("Arial", size=8); pdf.set_text_color(50, 50, 50)
-        pdf.multi_cell(183, 4, safe(body))
-        y_pos += 26
-
-    # PAGE 3: Week-on-Week charts
-    pdf.add_page()
-    pdf.set_fill_color(*MAIN_RGB); pdf.rect(0, 0, 210, 20, "F")
-    pdf.set_fill_color(*GOLD_RGB); pdf.rect(0, 20, 210, 2, "F")
-    pdf.set_text_color(255, 255, 255); pdf.set_font("Arial", "B", 11)
-    pdf.text(10, 13, safe("Week-on-Week Comparison | Apr 20-26 vs Apr 27 - May 3, 2026"))
-
-    merged_loc = dataframe[["Merchant", "Volume", "Revenue", "Total_Txns", "Failed"]].copy()
-    merged_loc.columns = ["Merchant", "Vol_CW", "Rev_CW", "Txns_CW", "Failed_CW"]
-    pv = prev_df[["Merchant", "Volume", "Revenue", "Total_Txns", "Failed"]].copy()
-    pv.columns = ["Merchant", "Vol_PW", "Rev_PW", "Txns_PW", "Failed_PW"]
-    mg = merged_loc.merge(pv, on="Merchant", how="left")
-
-    pw_vol_t  = prev_df[prev_df["Merchant"] != "REMITLYGLOBAL"]["Volume"].sum()
-    pw_rev_t  = prev_df["Revenue"].sum()
-    pw_txn_t  = prev_df["Total_Txns"].sum()
-    pw_fail_t = prev_df["Failed"].sum()
-    cw_vol_t  = dataframe[dataframe["Merchant"] != "REMITLYGLOBAL"]["Volume"].sum()
-    cw_rev_t  = dataframe["Revenue"].sum()
-    cw_txn_t  = dataframe["Total_Txns"].sum()
-    cw_fail_t = dataframe["Failed"].sum()
-
-    def dpdf(cw, pw):
-        if pw == 0: return "n/a"
-        v = ((cw - pw) / pw) * 100
-        return f"{'+'if v>=0 else ''}{v:.1f}% vs last week"
-
-    kpi2 = [
-        ("Total Money Moved*", f"ETB {cw_vol_t/1e6:.1f}M",    dpdf(cw_vol_t, pw_vol_t)),
-        ("Total Revenue",      f"ETB {cw_rev_t:,.0f}",         dpdf(cw_rev_t, pw_rev_t)),
-        ("Total Txns",         f"{int(cw_txn_t):,}",           dpdf(cw_txn_t, pw_txn_t)),
-        ("Total Failed",       str(int(cw_fail_t)),             dpdf(cw_fail_t, pw_fail_t)),
-    ]
-    x = 10
-    for lbl, val, delta in kpi2:
-        pdf.set_fill_color(245, 246, 250); pdf.rect(x, 25, 45, 22, "F")
-        pdf.set_fill_color(*GOLD_RGB); pdf.rect(x, 25, 45, 1.5, "F")
-        pdf.set_xy(x, 28); pdf.set_font("Arial", "B", 6); pdf.set_text_color(110, 110, 110)
-        pdf.cell(45, 4, safe(lbl), 0, 1, "C")
-        pdf.set_xy(x, 33); pdf.set_font("Arial", "B", 8); pdf.set_text_color(*MAIN_RGB)
-        pdf.cell(45, 4, safe(val), 0, 1, "C")
-        pdf.set_xy(x, 39); pdf.set_font("Arial", size=6); pdf.set_text_color(80, 80, 80)
-        pdf.cell(45, 4, safe(delta), 0, 1, "C")
-        x += 47
-
-    wow_imgs = [img(f) for f in (fig_wow_vol, fig_wow_rev, fig_wow_sr, fig_wow_fail)]
-    pdf.image(wow_imgs[0], x=10,  y=52,  w=93)
-    pdf.image(wow_imgs[1], x=107, y=52,  w=93)
-    pdf.image(wow_imgs[2], x=10,  y=105, w=93)
-    pdf.image(wow_imgs[3], x=107, y=105, w=93)
-
-    pdf.set_xy(10, 160)
-    pdf.set_font("Arial", "B", 8); pdf.set_text_color(0, 0, 0)
-    pdf.cell(190, 6, safe("Merchant Change vs Last Week; Summary Table"), ln=True)
-
-    th2 = ["Merchant", "Vol PW(M)", "Vol CW(M)", "Vol Chg", "Rev PW", "Rev CW", "Rev Chg",
-           "SR Last Wk", "SR This Wk", "SR Change", "Failed PW", "Failed CW"]
-    tw2 = [32, 16, 16, 14, 21, 21, 14, 16, 16, 14, 16, 16]
-    pdf.set_font("Arial", "B", 6); pdf.set_fill_color(*MAIN_RGB); pdf.set_text_color(255, 255, 255)
-    for h, w in zip(th2, tw2):
-        pdf.cell(w, 6, safe(h), 1, 0, "C", True)
-    pdf.ln()
-
-    pdf.set_font("Arial", size=6)
-    for _, r in mg.iterrows():
-        dv_  = ((r["Vol_CW"] - r["Vol_PW"]) / r["Vol_PW"] * 100) if r["Vol_PW"] else 0
-        drv_ = ((r["Rev_CW"] - r["Rev_PW"]) / r["Rev_PW"] * 100) if r["Rev_PW"] else 0
-        sr_cw  = df.loc[df["Merchant"] == r["Merchant"], "Success_Rate"].values
-        sr_cw  = sr_cw[0] if len(sr_cw) else 0
-        sr_pw2 = df_prev.loc[df_prev["Merchant"] == r["Merchant"], "Success_Rate"].values
-        sr_pw2 = sr_pw2[0] if len(sr_pw2) else 0
-
-        pdf.set_fill_color(255, 255, 255); pdf.set_text_color(0, 0, 0)
-        vol_note = "*" if r["Merchant"] == "REMITLYGLOBAL" else ""
-        row_cells = [
-            str(r["Merchant"]),
-            f"{r['Vol_PW']/1e6:.1f}", f"{r['Vol_CW']/1e6:.1f}{vol_note}",
-            f"{'+'if dv_>=0 else ''}{dv_:.0f}%" if r["Merchant"] != "REMITLYGLOBAL" else "N/A*",
-            f"{r['Rev_PW']:,.0f}", f"{r['Rev_CW']:,.0f}",
-            f"{'+'if drv_>=0 else ''}{drv_:.0f}%",
-            f"{sr_pw2:.1f}%", f"{sr_cw:.1f}%",
-            f"{'+'if (sr_cw-sr_pw2)>=0 else ''}{(sr_cw-sr_pw2):.1f}",
-            str(int(r["Failed_PW"])), str(int(r["Failed_CW"])),
-        ]
-        for val, w in zip(row_cells, tw2):
-            pdf.cell(w, 5, safe(val), 1, 0, "C", True)
-        pdf.ln()
-
-    # PAGE 4: Per-Merchant Detail
-    pdf.add_page()
-    pdf.set_fill_color(*MAIN_RGB); pdf.rect(0, 0, 210, 20, "F")
-    pdf.set_fill_color(*GOLD_RGB); pdf.rect(0, 20, 210, 2, "F")
-    pdf.set_text_color(255, 255, 255); pdf.set_font("Arial", "B", 11)
-    pdf.text(10, 13, safe("Per-Merchant Breakdown | April 27 - May 3, 2026"))
-
-    y_pos = 27
-    for _, row in dataframe.iterrows():
-        if y_pos > 248:
-            pdf.add_page(); y_pos = 15
-        pdf.set_fill_color(*MAIN_RGB); pdf.rect(10, y_pos, 190, 7, "F")
-        pdf.set_text_color(255, 255, 255); pdf.set_font("Arial", "B", 8)
-        pdf.text(12, y_pos + 5,
-                 safe(f"{row['Merchant']}  |  [{row['Risk']} Risk]  |  {row['DateRange']}  |  Success: {row['Success_Rate']:.1f}%"))
-
-        vol_str  = f"ETB {row['Volume']:,.0f}" if row["Volume"] > 0 else "Data N/A*"
-        tick_str = f"ETB {row['Avg_Txn_Value']:,.2f}" if row["Avg_Txn_Value"] > 0 else "Data N/A*"
-
-        detail_rows = [
-            [("Channel", row["Channel"]), ("Txn Types", row["TxnTypes"]),
-             ("Total Txns", f"{int(row['Total_Txns']):,}"), ("Failed", str(int(row["Failed"]))),
-             ("Total Moved", vol_str)],
-            [("Revenue", f"ETB {row['Revenue']:,.2f}"),
-             ("Avg Transaction Value", tick_str),
-             ("Avg Charge per Txn", f"ETB {row['Avg_Charge']:,.2f}"),
-             ("Top Failures", str(row["Top_Failures"])[:45])],
-        ]
-        row_y = y_pos + 9
-        for drow in detail_rows:
-            cw = 190 // len(drow); x_pos = 10
-            for lbl, val in drow:
-                pdf.set_xy(x_pos, row_y); pdf.set_font("Arial", "B", 6)
-                pdf.set_text_color(120, 120, 120); pdf.cell(cw, 3.5, safe(lbl + ":"), 0, 0)
-                pdf.set_xy(x_pos, row_y + 3.5); pdf.set_font("Arial", size=7)
-                pdf.set_text_color(0, 0, 0); pdf.cell(cw, 4, safe(str(val)), 0, 0)
-                x_pos += cw
-            row_y += 9
-
-        if row["Notes"]:
-            pdf.set_fill_color(253, 248, 235); pdf.rect(10, row_y, 190, 8, "F")
-            pdf.set_fill_color(*GOLD_RGB);     pdf.rect(10, row_y, 2, 8, "F")
-            pdf.set_xy(14, row_y + 2); pdf.set_font("Arial", size=7); pdf.set_text_color(80, 60, 20)
-            pdf.cell(184, 4, safe(str(row["Notes"])[:115]), 0, 0)
-            row_y += 8
-        y_pos = row_y + 5
-
-    return pdf.output(dest="S")
-
+# streamlit run app.py
 
 # ── SIDEBAR ───────────────────────────────────────────────────────────────────
 # st.sidebar.markdown("### FinPay Analytics")
