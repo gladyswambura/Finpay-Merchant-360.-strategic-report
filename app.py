@@ -1326,7 +1326,7 @@ with t6:
         use_container_width=True, hide_index=True
     )
 
-    st.markdown(f'<div class="warn-box"><strong>Red Sea and Red Sea Direct Deposits are one operation.</strong> Red Sea funds the Direct Deposits account. Read them together: ETB 1.06 billion moved and ETB 10.6 million in revenue. Red Sea stopped 14 Aug, Direct Deposits stopped 23 Jul.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="warn-box"><strong>Red Sea and Red Sea Direct Deposits are one operation.</strong> Red Sea funds the Direct Deposits account. Read them together: ETB 1.06 billion moved and ETB 10.6 mmillion in revenue. Red Sea stopped 14 Aug, Direct Deposits stopped 23 Jul.</div>', unsafe_allow_html=True)
 
     st.markdown('<div class="section-title">Flags, Gaps & Actions Required</div>', unsafe_allow_html=True)
     st.markdown('<div class="info-box"><strong>What this shows:</strong> Every issue found in the data, ranked by priority. P1 means it needs to be resolved this week because it is either losing money, creating refund liability, or blocking transactions at scale. P2 means it needs to be investigated and resolved within the month. Each row includes what the data shows, what needs to happen, and who should own it.</div>', unsafe_allow_html=True)
