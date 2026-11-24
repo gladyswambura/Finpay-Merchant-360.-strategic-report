@@ -1297,6 +1297,37 @@ with t5:
     st.markdown(f'<div class="{issue_color}" style="margin-top:16px;"><strong>Main issue to resolve:</strong> {r.Issue}</div>', unsafe_allow_html=True)
 
 with t6:
+    st.markdown('<div class="section-title">Merchant Summary</div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-box">All 16 merchant connections, Jan to Nov 2026. Value in ETB millions. Success rate is transactions that reached the recipient. Refunds owed are fees charged on failed transactions that must be returned.</div>', unsafe_allow_html=True)
+
+    summary_df = df[["Label","Total","SuccessRate","Value","Revenue","Refunds","Status"]].copy()
+    summary_df["Value (ETB m)"] = (summary_df["Value"] / 1e6).round(1)
+    summary_df["Success rate"] = summary_df["SuccessRate"].apply(lambda v: f"{v:.2f}%")
+    summary_df = summary_df.rename(columns={"Label":"Merchant","Total":"Txns","Revenue":"Revenue (ETB)","Refunds":"Refunds owed (ETB)"})
+    summary_df = summary_df[["Merchant","Txns","Success rate","Value (ETB m)","Revenue (ETB)","Refunds owed (ETB)","Status"]]
+
+    totals = pd.DataFrame([{
+        "Merchant": "TOTAL",
+        "Txns": df.Total.sum(),
+        "Success rate": f"{total_succ/total_txns*100:.2f}%",
+        "Value (ETB m)": round(df.Value.sum()/1e6, 1),
+        "Revenue (ETB)": df.Revenue.sum(),
+        "Refunds owed (ETB)": df.Refunds.sum(),
+        "Status": "",
+    }])
+    summary_display = pd.concat([summary_df, totals], ignore_index=True)
+
+    st.dataframe(
+        summary_display.style
+        .format({"Txns":"{:,}", "Value (ETB m)":"{:,.1f}", "Revenue (ETB)":"{:,.0f}", "Refunds owed (ETB)":"{:,.0f}"})
+        .apply(lambda row: [
+            "font-weight:bold;background:#e8f5ee" if row["Merchant"]=="TOTAL" else ""
+            for _ in row], axis=1),
+        use_container_width=True, hide_index=True
+    )
+
+    st.markdown(f'<div class="warn-box"><strong>Red Sea and Red Sea Direct Deposits are one operation.</strong> Red Sea funds the Direct Deposits account. Read them together: ETB 1.06 billion moved and ETB 10.6 million in revenue. Red Sea stopped 14 Aug, Direct Deposits stopped 23 Jul.</div>', unsafe_allow_html=True)
+
     st.markdown('<div class="section-title">Flags, Gaps & Actions Required</div>', unsafe_allow_html=True)
     st.markdown('<div class="info-box"><strong>What this shows:</strong> Every issue found in the data, ranked by priority. P1 means it needs to be resolved this week because it is either losing money, creating refund liability, or blocking transactions at scale. P2 means it needs to be investigated and resolved within the month. Each row includes what the data shows, what needs to happen, and who should own it.</div>', unsafe_allow_html=True)
     fl = pd.DataFrame(FLAGS, columns=["Priority","Issue","Merchants affected","What the data shows","What to do","Suggested owner"])
