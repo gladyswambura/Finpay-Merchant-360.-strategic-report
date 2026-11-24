@@ -1221,7 +1221,7 @@ with t1:
     st.dataframe(
         charge_df.style
         .format({"Value moved (ETB)":"{:,.0f}","Revenue earned (ETB)":"{:,.2f}","Blended rate %":"{:.3f}%","Rev per txn (ETB)":"{:,.2f}"})
-        .applymap(color_fee, subset=["Fee type"]),
+        .map(color_fee, subset=["Fee type"]),
         use_container_width=True, hide_index=True
     )
 
