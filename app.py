@@ -1194,12 +1194,36 @@ with t1:
 
     st.markdown('<div class="warn-box"><strong>Zero-revenue merchants (No charges):</strong> Remitly (ETB 3.54B), Thunes (ETB 1.44B), FlexyRemit (ETB 207M), Birr Link (ETB 9.1M), and Juba mobile are processing significant value with no fee income recorded...we have a different billing arrangement (e.g. FX margin)</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-title">Charge Model Breakdown</div>', unsafe_allow_html=True)
-    st.markdown('<div class="info-box">The blended rate is calculated as: Revenue divided by Value times 100. It tells us how many ETB we earn for every ETB 100 processed. A flat-fee model (e.g. ETB 91 per transaction) will produce a higher blended rate on small transactions and a lower one on large transactions.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="info-box"><strong>Contracted rate</strong> is what the agreement says (e.g. 1.00% or ETB 91 flat). <strong>Blended rate</strong> is what we actually earned: total revenue divided by total value times 100. For flat-fee merchants the blended rate varies with transaction size. <strong>Revenue per txn</strong> is the average ETB earned per successful transaction. Merchants showing 0.000% blended rate have no fee recorded on the platform.</div>', unsafe_allow_html=True)
+
+    charge_df = df[["Label","ChargeModel","Value","Revenue","ChargeRate","Success"]].copy()
+    charge_df["Rev per txn (ETB)"] = (charge_df["Revenue"] / charge_df["Success"].replace(0,1)).round(2)
+    charge_df["Fee type"] = charge_df["ChargeModel"].apply(
+        lambda x: "No charge" if "No charge" in str(x)
+        else "Flat fee" if "ETB" in str(x) and "%" not in str(x)
+        else "Percentage" if "%" in str(x)
+        else "Mixed"
+    )
+    charge_df = charge_df.rename(columns={
+        "Label": "Merchant",
+        "ChargeModel": "Contracted rate",
+        "Value": "Value moved (ETB)",
+        "Revenue": "Revenue earned (ETB)",
+        "ChargeRate": "Blended rate %",
+    })[["Merchant","Fee type","Contracted rate","Value moved (ETB)","Revenue earned (ETB)","Blended rate %","Rev per txn (ETB)"]]
+
+    def color_fee(val):
+        if val == "No charge": return f"background-color:#fef3e2;color:#5a3000"
+        if val == "Flat fee":  return f"background-color:#e8f5ee;color:#0d3320"
+        if val == "Percentage": return f"background-color:#eaf4fb;color:#0a3d62"
+        return ""
+
     st.dataframe(
-        df[["Label","ChargeModel","Value","Revenue","ChargeRate"]]
-        .rename(columns={"Label":"Merchant","ChargeModel":"Charge model","ChargeRate":"Blended rate %"})
-        .style.format({"Value":"{:,.0f}","Revenue":"{:,.2f}","Blended rate %":"{:.3f}%"}),
-        use_container_width=True, hide_index=True)
+        charge_df.style
+        .format({"Value moved (ETB)":"{:,.0f}","Revenue earned (ETB)":"{:,.2f}","Blended rate %":"{:.3f}%","Rev per txn (ETB)":"{:,.2f}"})
+        .applymap(color_fee, subset=["Fee type"]),
+        use_container_width=True, hide_index=True
+    )
 
 with t2:
     st.markdown('<div class="section-title">Transaction Success Rates</div>', unsafe_allow_html=True)
